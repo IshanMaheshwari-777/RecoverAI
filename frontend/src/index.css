@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Colour system.
+  - series-1..4 are the data-viz categorical slots, taken verbatim from the
+    validated reference palette (worst adjacent CVD ΔE 9.1 light / 8.4 dark).
+  - surfaces / ink are a neutral fintech greyscale, dark-first.
+  Light values live on :root; dark values are re-declared under .dark so the
+  toggle wins in both directions.
+*/
+:root {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0efec;
+  --color-border: #e3e2dd;
+  --color-ink: #14130f;
+  --color-ink-secondary: #52514c;
+  --color-ink-muted: #86847d;
+
+  --color-series-1: #2a78d6; /* blue   – live / primary */
+  --color-series-2: #eb6834; /* orange – LLM / simulated */
+  --color-series-3: #1baf7a; /* aqua   – recovered / success accent */
+  --color-series-4: #eda100; /* yellow – rate-limited / warning accent */
+
+  --color-good: #008300;
+  --color-good-fg: #e4f2e4;
+  --color-warn: #b06f00;
+  --color-warn-fg: #fbeccb;
+  --color-critical: #d23b3a;
+  --color-critical-fg: #fbe0e0;
+}
+
+.dark {
+  --color-bg: #0e0e0d;
+  --color-surface: #1a1a19;
+  --color-surface-2: #232322;
+  --color-border: #322f2a;
+  --color-ink: #f5f4ef;
+  --color-ink-secondary: #b8b6ac;
+  --color-ink-muted: #86847d;
+
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+
+  --color-good: #3ba55c;
+  --color-good-fg: #0c2b16;
+  --color-warn: #d99a2b;
+  --color-warn-fg: #2e2408;
+  --color-critical: #e66767;
+  --color-critical-fg: #2c1111;
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-border: var(--color-border);
+  --color-ink: var(--color-ink);
+  --color-ink-secondary: var(--color-ink-secondary);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-series-1: var(--color-series-1);
+  --color-series-2: var(--color-series-2);
+  --color-series-3: var(--color-series-3);
+  --color-series-4: var(--color-series-4);
+  --color-good: var(--color-good);
+  --color-good-fg: var(--color-good-fg);
+  --color-warn: var(--color-warn);
+  --color-warn-fg: var(--color-warn-fg);
+  --color-critical: var(--color-critical);
+  --color-critical-fg: var(--color-critical-fg);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* thin, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: fade-in 0.35s ease both;
+}

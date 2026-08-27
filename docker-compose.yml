@@ -1,0 +1,16 @@
+services:
+  agent:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # optional — the agent runs without any of these
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RECOVERY_LOG_JSON: "true"
+    volumes:
+      - report-data:/data
+
+volumes:
+  report-data:
