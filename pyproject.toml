@@ -45,8 +45,8 @@ dev = [
 recover-ai = "recover_ai.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/swanandm/recover-ai"
-Documentation = "https://github.com/swanandm/recover-ai/tree/main/docs"
+Homepage = "https://github.com/IshanMaheshwari-777/RecoverAI"
+Documentation = "https://github.com/IshanMaheshwari-777/RecoverAI/tree/main/docs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/recover_ai"]

@@ -18,10 +18,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
-RUN pip install --no-cache-dir .
-
-# built dashboard from stage 1
+# built dashboard from stage 1 — copied in before install so hatchling
+# bundles it into the wheel (see [tool.hatch...artifacts] in pyproject.toml)
 COPY --from=web /src/recover_ai/api/static/ ./src/recover_ai/api/static/
+RUN pip install --no-cache-dir .
 
 # bake a deterministic demo report so the hosted dashboard has data on first
 # load. No credentials at build time -> fully simulated links + deterministic
