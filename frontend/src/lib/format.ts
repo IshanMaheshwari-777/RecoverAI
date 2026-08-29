@@ -31,7 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const METHOD_LABELS: Record<string, string> = {
-  razorpay_api: "Razorpay API · live",
+  razorpay_api: "Razorpay link · live",
+  razorpay_order: "Razorpay order · live",
   razorpay_api_simulated: "Razorpay API · simulated",
   razorpay_api_ratelimited: "Razorpay API · rate-limited",
   llm_message: "LLM-drafted message",

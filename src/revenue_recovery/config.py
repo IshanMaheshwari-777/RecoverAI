@@ -52,10 +52,11 @@ class Settings(BaseSettings):
     # right default: ~$1 / $5 per Mtok, a few hundredths of a cent per run.
     llm_model: str = Field(default="claude-haiku-4-5", alias="RECOVERY_LLM_MODEL")
     live_link_budget: int = Field(
-        default=8,
+        default=12,
         alias="RAZORPAY_LIVE_LINK_BUDGET",
-        description="Genuinely-live Razorpay link creations per run before "
-        "labelled simulation takes over (test mode caps at 30 links total).",
+        description="Genuinely-live Razorpay retry-object creations per run "
+        "(payment link, or an order once the test account's 30-link cap is "
+        "hit) before labelled simulation takes over.",
     )
     data_dir: str = Field(default="data", alias="RECOVERY_DATA_DIR")
     log_json: bool = Field(default=False, alias="RECOVERY_LOG_JSON")

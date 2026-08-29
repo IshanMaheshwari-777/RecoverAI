@@ -66,7 +66,8 @@ class DiagnosisMethod(StrEnum):
 
 
 class ExecutionMethod(StrEnum):
-    RAZORPAY_API = "razorpay_api"
+    RAZORPAY_API = "razorpay_api"  # live payment link
+    RAZORPAY_ORDER = "razorpay_order"  # live order (payment-link cap hit)
     RAZORPAY_API_SIMULATED = "razorpay_api_simulated"
     RAZORPAY_API_RATELIMITED = "razorpay_api_ratelimited"
     LLM_MESSAGE = "llm_message"

@@ -9,6 +9,7 @@ export type DiagnosisAction =
   | "do_not_contact";
 export type ExecutionMethod =
   | "razorpay_api"
+  | "razorpay_order"
   | "razorpay_api_simulated"
   | "razorpay_api_ratelimited"
   | "llm_message"

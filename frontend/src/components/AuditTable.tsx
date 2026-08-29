@@ -20,7 +20,8 @@ function outcomeBadge(r: TransactionResult) {
 }
 
 function methodTone(m: string) {
-  if (m === "razorpay_api" || m === "llm_message") return "series-1" as const;
+  if (m === "razorpay_api" || m === "razorpay_order" || m === "llm_message")
+    return "series-1" as const;
   if (m === "razorpay_api_ratelimited" || m === "pipeline_error") return "warn" as const;
   return "neutral" as const;
 }

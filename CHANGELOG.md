@@ -15,10 +15,12 @@ All notable changes to this project are documented here. The format follows
 - `.env` reduced to three optional keys.
 
 ### Added
-- `RazorpayGateway` recognises the test-account 30-link lifetime cap and stops
-  attempting live immediately (was retrying + backing off pointlessly).
-- Unit tests for the gateway degradation logic (budget / backoff / circuit /
-  quota). 68 tests, 93% coverage.
+- `RazorpayGateway` now falls back **payment link → live order → simulated**:
+  once the test account's 30-payment-link cap is hit it creates a real Order
+  instead (`RAZORPAY_ORDER`), so the demo stays genuinely live. New
+  `ExecutionMethod.RAZORPAY_ORDER`, surfaced on the dashboard.
+- Unit tests for the gateway fallback chain (budget / backoff / circuit / cap
+  / order). 69 tests, 93% coverage.
 
 ## [1.0.0] — 2026-08-27
 

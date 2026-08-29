@@ -18,14 +18,20 @@ clone && make demo` produces a full dashboard with labelled simulation. Real
 keys upgrade paths in place — no code change, no separate "demo mode". This
 also keeps the test suite hermetic.
 
-### 3. Budgeted live Razorpay calls, not all-or-nothing
+### 3. Budgeted live Razorpay calls, with a payment-link → order fallback
 
-Razorpay's test-mode API rate-limits at a few link-creates per minute.
-Creating a real link for all ~40 retries in a batch would take minutes and
-mostly 429. The gateway spends a small budget of genuine creations (default 8,
-backing off on 429, with a circuit breaker after 3 consecutive limits), then
-labels the rest `razorpay_api_simulated` / `razorpay_api_ratelimited`. The
-dashboard shows the split — it never claims more was live than was.
+Razorpay's test mode caps **payment-link** creation at 30 per account (ever)
+and rate-limits the endpoint hard. So the gateway:
+1. spends a bounded budget of genuine creations (default 12, backing off on
+   429, circuit-breaking after 3 consecutive limits);
+2. once payment links are capped, creates a live **Order** instead — no
+   30-cap, still a real Razorpay object, reported as `RAZORPAY_ORDER`;
+3. only then falls back to a labelled `razorpay_api_simulated` /
+   `razorpay_api_ratelimited` link.
+
+The dashboard shows the exact split — it never claims more was live than was.
+A merchant's real integration would use payment links throughout; the order
+path exists so the demo stays genuinely live against a capped test account.
 
 ### 4. Per-method recovery strategies
 

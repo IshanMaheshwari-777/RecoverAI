@@ -96,6 +96,7 @@ class Executor:
             if action is DiagnosisAction.RETRY_NOW
             else f"scheduled for {decision.scheduled_for:%Y-%m-%d %H:%M UTC}"
         )
+        kind = "Order" if link.method is ExecutionMethod.RAZORPAY_ORDER else "Payment link"
         return self._entry(
             txn,
             decision,
@@ -103,7 +104,7 @@ class Executor:
             executed=True,
             method=link.method,
             projected=project_outcome(action, txn.id),
-            detail=f"Payment link {link.id} ({link.short_url}) -- retry {when}.",
+            detail=f"{kind} {link.id} ({link.short_url}) -- retry {when}.",
             payment_link_id=link.id,
         )
 
