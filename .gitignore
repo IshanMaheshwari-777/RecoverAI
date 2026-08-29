@@ -19,11 +19,11 @@ build/
 node_modules/
 frontend/dist/
 
-# generated artefacts (regenerate with: revenue-recovery run)
+# generated artefacts (regenerate with: recover-ai run)
 data/*.json
 
 # built SPA — produced by `make build-web` / Docker / CI, not committed
-src/revenue_recovery/api/static/
+src/recover_ai/api/static/
 
 # editors / OS
 .DS_Store

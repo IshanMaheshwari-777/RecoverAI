@@ -3,7 +3,7 @@ venv/
 node_modules/
 frontend/node_modules/
 frontend/dist/
-src/revenue_recovery/api/static/assets/
+src/recover_ai/api/static/assets/
 **/__pycache__/
 *.pyc
 .pytest_cache/

@@ -1,0 +1,24 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+# One free web service, built from the Dockerfile. The image bakes a
+# deterministic demo report, so the dashboard has data the moment it boots.
+#
+# Deploy: push this repo to GitHub, then on Render → New → Blueprint,
+# point it at the repo. Add the three secrets below only if you want the
+# Razorpay / Claude paths to go live; it runs fully without them.
+services:
+  - type: web
+    name: recover-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: RECOVERY_LOG_JSON
+        value: "true"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

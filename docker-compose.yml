@@ -9,8 +9,3 @@ services:
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       RECOVERY_LOG_JSON: "true"
-    volumes:
-      - report-data:/data
-
-volumes:
-  report-data:

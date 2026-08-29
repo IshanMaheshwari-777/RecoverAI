@@ -77,6 +77,23 @@ recover-ai serve                              # API + dashboard
 
 ---
 
+## Deploy
+
+The whole thing is one container — FastAPI serves the built SPA and the JSON
+API on one port. The image **bakes a deterministic demo run at build time**
+(no credentials, no external calls), so a fresh deploy shows a populated
+dashboard immediately; a deploy with real keys can re-run from the header.
+
+**Render** (free, from [`render.yaml`](render.yaml)): push this repo to GitHub →
+Render → **New → Blueprint** → pick the repo. Add `RAZORPAY_KEY_ID`,
+`RAZORPAY_KEY_SECRET`, `ANTHROPIC_API_KEY` only if you want the live paths.
+
+**Anything else that runs a Dockerfile** (Railway, Fly.io, Hugging Face Spaces,
+Cloud Run): point it at this repo. The container honours `$PORT` and needs no
+persistent disk.
+
+---
+
 ## Architecture
 
 Ports and adapters. The recovery logic knows nothing about Razorpay, Anthropic,

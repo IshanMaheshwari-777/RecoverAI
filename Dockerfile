@@ -13,7 +13,7 @@ FROM python:3.12-slim AS app
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     RECOVERY_LOG_JSON=true \
-    RECOVERY_DATA_DIR=/data
+    PORT=8000
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
@@ -23,12 +23,18 @@ RUN pip install --no-cache-dir .
 # built dashboard from stage 1
 COPY --from=web /src/recover_ai/api/static/ ./src/recover_ai/api/static/
 
-RUN useradd -u 10001 -m app && mkdir -p /data && chown -R app /data /app
+# bake a deterministic demo report so the hosted dashboard has data on first
+# load. No credentials at build time -> fully simulated links + deterministic
+# fallback diagnosis: zero external calls, zero cost. A deploy with real keys
+# can re-run from the dashboard.
+RUN recover-ai run --count 180 --seed 42 --quiet
+
+RUN useradd -u 10001 -m app && chown -R app /app
 USER app
-VOLUME ["/data"]
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"
+  CMD sh -c 'python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(sys.argv[1]).status==200 else 1)" "http://localhost:${PORT:-8000}/api/health"'
 
-CMD ["uvicorn", "recover_ai.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# honour $PORT (Render / Railway / Hugging Face inject it); default 8000
+CMD ["sh", "-c", "uvicorn recover_ai.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
