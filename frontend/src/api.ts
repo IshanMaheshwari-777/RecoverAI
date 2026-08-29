@@ -1,5 +1,10 @@
 import type { PipelineReport, RunRequest } from "./types";
 
+// Empty by default: the SPA is served same-origin by the API. Set
+// VITE_API_URL at build time (e.g. on Vercel) when the API lives elsewhere.
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+const url = (path: string) => `${BASE}${path}`;
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.text();
@@ -9,17 +14,17 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  getReport: () => fetch("/api/report").then((r) => json<PipelineReport>(r)),
+  getReport: () => fetch(url("/api/report")).then((r) => json<PipelineReport>(r)),
 
   run: (body: RunRequest) =>
-    fetch("/api/runs", {
+    fetch(url("/api/runs"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => json<PipelineReport>(r)),
 
   confirmWebhook: (payment_link_id: string) =>
-    fetch("/api/webhooks/razorpay", {
+    fetch(url("/api/webhooks/razorpay"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ event: "payment_link.paid", payment_link_id }),

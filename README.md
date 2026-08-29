@@ -92,6 +92,27 @@ Render → **New → Blueprint** → pick the repo. Add `RAZORPAY_KEY_ID`,
 Cloud Run): point it at this repo. The container honours `$PORT` and needs no
 persistent disk.
 
+### Split deploy (SPA on Vercel, API on Render)
+
+Optional — the single service above is simpler. If you want the SPA on a CDN:
+
+**Vercel** (the dashboard)
+- Root Directory: `frontend`
+- Build Command: `npm run build` · Output Directory: `dist` · Install: `npm ci`
+- Environment variables:
+  - `VITE_OUT_DIR` = `dist`
+  - `VITE_API_URL` = `https://<your-render-service>.onrender.com`
+
+**Render** (the API) — Docker service, Root Directory blank
+- Runtime: Docker · Dockerfile Path: `./Dockerfile` · Health Check Path: `/api/health`
+- Build & Start Command: leave blank (the Dockerfile handles both)
+- Environment variable: `RECOVERY_CORS_ORIGINS` = `https://<your-app>.vercel.app`
+- Optional live keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `ANTHROPIC_API_KEY`
+
+*(Prefer a native Python service on Render? Root blank, Build
+`pip install -e . && cd frontend && npm ci && npm run build`, Start
+`uvicorn recover_ai.api.main:app --host 0.0.0.0 --port $PORT`.)*
+
 ---
 
 ## Architecture

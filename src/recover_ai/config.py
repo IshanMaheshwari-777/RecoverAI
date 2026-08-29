@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     log_json: bool = Field(default=False, alias="RECOVERY_LOG_JSON")
     log_level: str = Field(default="INFO", alias="RECOVERY_LOG_LEVEL")
 
+    # Extra browser origins allowed to call the API, comma-separated. Only
+    # needed when the dashboard is hosted apart from the API (e.g. the SPA
+    # on Vercel, this service on Render). The bundled single-service deploy
+    # serves the SPA same-origin and needs nothing here.
+    cors_origins: str = Field(default="", alias="RECOVERY_CORS_ORIGINS")
+
     @field_validator("razorpay_key_id", "razorpay_key_secret", "anthropic_api_key", mode="before")
     @classmethod
     def _scrub_placeholder(cls, v: object) -> object:
@@ -77,6 +83,13 @@ class Settings(BaseSettings):
     @property
     def anthropic_available(self) -> bool:
         return self.anthropic_api_key is not None
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Local dev origins, plus any set via RECOVERY_CORS_ORIGINS."""
+        base = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        extra = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        return base + extra
 
     def credential_banner(self) -> str:
         rp = "live" if self.razorpay_available else "simulated (no keys)"
