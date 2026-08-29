@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from revenue_recovery.adapters import razorpay_gateway
-from revenue_recovery.adapters.razorpay_gateway import RazorpayGateway
-from revenue_recovery.domain.enums import ExecutionMethod
-from revenue_recovery.domain.money import Money
+from recover_ai.adapters import razorpay_gateway
+from recover_ai.adapters.razorpay_gateway import RazorpayGateway
+from recover_ai.domain.enums import ExecutionMethod
+from recover_ai.domain.money import Money
 
 
 @pytest.fixture(autouse=True)

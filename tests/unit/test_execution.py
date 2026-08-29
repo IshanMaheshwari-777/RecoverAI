@@ -1,14 +1,14 @@
-from revenue_recovery.adapters.simulated_gateway import SimulatedGateway
-from revenue_recovery.domain.diagnosis import Diagnosis
-from revenue_recovery.domain.enums import (
+from recover_ai.adapters.simulated_gateway import SimulatedGateway
+from recover_ai.domain.diagnosis import Diagnosis
+from recover_ai.domain.enums import (
     DiagnosisAction,
     DiagnosisMethod,
     ExecutionMethod,
     RecoveryOutcome,
 )
-from revenue_recovery.domain.recovery import RecoveryDecision
-from revenue_recovery.services.execution import Executor
-from revenue_recovery.services.outcomes import project_outcome
+from recover_ai.domain.recovery import RecoveryDecision
+from recover_ai.services.execution import Executor
+from recover_ai.services.outcomes import project_outcome
 from tests.conftest import FakeLLM
 
 

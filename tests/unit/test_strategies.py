@@ -1,7 +1,7 @@
 from datetime import timedelta
 
-from revenue_recovery.domain.enums import FailureReason, PaymentMethod
-from revenue_recovery.services.strategies import retry_delay, strategy_for
+from recover_ai.domain.enums import FailureReason, PaymentMethod
+from recover_ai.services.strategies import retry_delay, strategy_for
 
 
 def test_upi_retries_sooner_than_netbanking() -> None:

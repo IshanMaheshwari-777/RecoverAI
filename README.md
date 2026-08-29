@@ -1,4 +1,4 @@
-<h1 align="center">Revenue Recovery Agent</h1>
+<h1 align="center">Recover AI</h1>
 
 <p align="center">
   An AI agent that diagnoses <em>why</em> a Razorpay payment failed and drives the
@@ -69,10 +69,10 @@ docker compose up --build      # dashboard + API on :8000
 **Just the CLI:**
 
 ```bash
-revenue-recovery run --count 180 --seed 42          # writes data/pipeline_report.json
-revenue-recovery run --inject-failure               # exercise the containment boundary
-revenue-recovery report                             # re-print the last run
-revenue-recovery serve                              # API + dashboard
+recover-ai run --count 180 --seed 42          # writes data/pipeline_report.json
+recover-ai run --inject-failure               # exercise the containment boundary
+recover-ai report                             # re-print the last run
+recover-ai serve                              # API + dashboard
 ```
 
 ---
@@ -97,7 +97,7 @@ Full write-up: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 design rationale: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ```
-src/revenue_recovery/
+src/recover_ai/
 ├── domain/        pure entities, value objects, enums, errors  (no I/O)
 │   ├── money.py       exact-Decimal ₹ with Indian digit grouping
 │   ├── models.py      Transaction / ErrorDetail  (strict Pydantic)
@@ -128,7 +128,7 @@ retries or stops — `RecoveryEngine` does, deterministically.
 On the seed-42 batch: **56/74 (76%) resolved by rule, 18/74 routed off the rule
 table.** With no Anthropic key those 18 take the conservative fallback
 (`method="llm_fallback"`); with a key they hit Claude (`method="llm"`).
-`revenue-recovery run` prints the split.
+`recover-ai run` prints the split.
 
 ## The stopping rules
 
@@ -142,7 +142,7 @@ Enforced in `services/recovery.py`, not just documented:
 
 ## Failure containment
 
-`revenue-recovery run --inject-failure` adds one record with a corrupted amount
+`recover-ai run --inject-failure` adds one record with a corrupted amount
 (bypassing model validation, as bad upstream data does). It fails deep in the
 executor; the pipeline captures it per-transaction (inside the concurrent
 thread pool — see below), records an audit entry for the failure, and **the
@@ -154,9 +154,6 @@ sequential in chronological order (the recovery engine is stateful). A live
 180-transaction run — ~55 LLM calls + ~35 gateway calls — takes **~8 s**, not
 ~100 s. Fast enough to trigger from the dashboard or a webhook handler.
 
-<p align="center">
-  <img src="docs/failure-containment.png" alt="Failure containment panel" width="880">
-</p>
 
 ## "Revenue recovered"
 
@@ -172,7 +169,7 @@ this live.
 
 ## API
 
-`revenue-recovery serve` → OpenAPI docs at `/docs`.
+`recover-ai serve` → OpenAPI docs at `/docs`.
 
 | Method | Path | |
 |---|---|---|

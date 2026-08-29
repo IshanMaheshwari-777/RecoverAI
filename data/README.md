@@ -1,1 +1,1 @@
-# Pipeline output lands here (git-ignored, regenerate with: revenue-recovery run)
+# Pipeline output lands here (git-ignored, regenerate with: recover-ai run)

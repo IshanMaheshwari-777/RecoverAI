@@ -12,17 +12,17 @@ from datetime import datetime
 
 import pytest
 
-from revenue_recovery.config import Settings, get_settings
-from revenue_recovery.domain.enums import (
+from recover_ai.config import Settings, get_settings
+from recover_ai.domain.enums import (
     ErrorSource,
     FailureReason,
     PaymentMethod,
     TransactionStatus,
 )
-from revenue_recovery.domain.errors import LLMUnavailableError
-from revenue_recovery.domain.models import ErrorDetail, Transaction
-from revenue_recovery.domain.money import Money
-from revenue_recovery.ports.llm import LLMReply
+from recover_ai.domain.errors import LLMUnavailableError
+from recover_ai.domain.models import ErrorDetail, Transaction
+from recover_ai.domain.money import Money
+from recover_ai.ports.llm import LLMReply
 
 
 @pytest.fixture(autouse=True)

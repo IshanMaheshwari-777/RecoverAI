@@ -80,5 +80,5 @@ raise is captured and never touches the pool's other work.
 An earlier cut rendered a self-contained HTML file. A real API + SPA is worth
 the build step: the webhook flow is interactive, runs are triggerable, the
 audit trail is filterable, and the JSON API is the actual integration surface
-a merchant would consume. `revenue-recovery serve` hosts both from one
+a merchant would consume. `recover-ai serve` hosts both from one
 process; the Docker image ships the built dashboard.

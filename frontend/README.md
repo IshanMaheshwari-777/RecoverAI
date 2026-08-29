@@ -7,15 +7,15 @@ breakdowns are hand-drawn SVG/CSS against the design tokens in `src/index.css`
 ```bash
 npm install
 npm run dev      # http://localhost:5173, proxies /api → :8000
-npm run build    # emits to ../src/revenue_recovery/api/static  (served by `revenue-recovery serve`)
+npm run build    # emits to ../src/recover_ai/api/static  (served by `recover-ai serve`)
 npm run lint     # tsc --noEmit
 ```
 
 Run the API separately during development:
 
 ```bash
-revenue-recovery serve      # from the repo root
+recover-ai serve      # from the repo root
 ```
 
 State is TanStack Query over a tiny fetch client (`src/api.ts`); types in
-`src/types.ts` mirror `revenue_recovery.domain.results.PipelineReport`.
+`src/types.ts` mirror `recover_ai.domain.results.PipelineReport`.

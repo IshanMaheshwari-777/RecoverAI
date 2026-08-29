@@ -3,9 +3,9 @@ the proof they hold, so they are explicit, not incidental."""
 
 from __future__ import annotations
 
-from revenue_recovery.domain.diagnosis import Diagnosis
-from revenue_recovery.domain.enums import DiagnosisAction, DiagnosisMethod, PaymentMethod
-from revenue_recovery.services.recovery import RecoveryEngine
+from recover_ai.domain.diagnosis import Diagnosis
+from recover_ai.domain.enums import DiagnosisAction, DiagnosisMethod, PaymentMethod
+from recover_ai.services.recovery import RecoveryEngine
 
 
 def _diag(txn_id: str, action: DiagnosisAction) -> Diagnosis:

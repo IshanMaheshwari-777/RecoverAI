@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "revenue-recovery-agent"
+name = "recover-ai"
 version = "1.0.0"
 description = "An AI agent that diagnoses failed Razorpay payments and drives compliant, bounded recovery."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Swanand M", email = "swanandm@gmail.com" }]
-keywords = ["razorpay", "payments", "revenue-recovery", "agent", "fintech"]
+keywords = ["razorpay", "payments", "recover-ai", "agent", "fintech"]
 classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -42,17 +42,17 @@ dev = [
 ]
 
 [project.scripts]
-revenue-recovery = "revenue_recovery.cli:app"
+recover-ai = "recover_ai.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/swanandm/revenue-recovery-agent"
-Documentation = "https://github.com/swanandm/revenue-recovery-agent/tree/main/docs"
+Homepage = "https://github.com/swanandm/recover-ai"
+Documentation = "https://github.com/swanandm/recover-ai/tree/main/docs"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/revenue_recovery"]
+packages = ["src/recover_ai"]
 # the built dashboard (git-ignored) is bundled into the wheel when present;
 # absent on a fresh clone -> `make build-web` produces it
-artifacts = ["src/revenue_recovery/api/static/**/*"]
+artifacts = ["src/recover_ai/api/static/**/*"]
 
 [tool.ruff]
 line-length = 100
@@ -67,7 +67,7 @@ ignore = ["A003"]
 "tests/**" = ["E501", "PT018", "A002", "N818"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["revenue_recovery"]
+known-first-party = ["recover_ai"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -84,7 +84,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --cov=revenue_recovery --cov-report=term-missing"
+addopts = "-ra --strict-markers --cov=recover_ai --cov-report=term-missing"
 asyncio_mode = "auto"
 markers = [
     "live: hits a real external API (Razorpay / Anthropic); run explicitly with -m live",

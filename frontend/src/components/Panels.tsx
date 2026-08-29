@@ -12,10 +12,11 @@ export function FailurePanel({ report }: { report: PipelineReport }) {
           <ShieldCheck className="size-5 shrink-0 text-good" />
           <div>
             <h2 className="text-sm font-semibold text-ink">No processing failures this run</h2>
-            <p className="text-xs text-ink-muted">
-              Every transaction reached a decision. Trigger a run with{" "}
-              <span className="text-ink-secondary">inject failure</span> to watch the containment
-              boundary catch a deliberately malformed record.
+            <p className="text-xs leading-relaxed text-ink-muted">
+              Every transaction reached a decision. Open the arrow next to{" "}
+              <span className="text-ink-secondary">Run agent</span> and tick{" "}
+              <span className="text-ink-secondary">Inject a corrupt record</span> to watch one bad
+              row fail on its own without stopping the batch.
             </p>
           </div>
         </div>
@@ -55,27 +56,30 @@ export function CompliancePanel({ report }: { report: PipelineReport }) {
   const s = report.summary;
   const rules = [
     {
-      title: "do_not_contact is absolute",
-      body: "A compliance stop from the diagnosis layer can never be turned into an action.",
+      title: "Fraud stops are absolute",
+      body: "A risk-check failure can never become an action. Retrying would complete a fraudulent charge and earn the merchant a chargeback.",
       metric: `${s.compliance_violations} violations`,
       ok: s.compliance_violations === 0,
     },
     {
       title: "Retries capped per method",
-      body: "Once attempts hit the method's cap, we stop retrying that rail and escalate to a method switch.",
+      body: "Card networks fine merchants for retry abuse. Past the cap we stop retrying that rail and ask the customer to switch.",
       metric: `${s.escalated_actions} escalations`,
       ok: true,
     },
     {
       title: "Contact capped per customer",
-      body: "At most 2 messages to one person in a rolling 48 h, across all their transactions. Automated retries don't count.",
+      body: "At most 2 messages to one person in a rolling 48 h, across all their transactions. Silent retries don't count.",
       metric: `${s.blocked_actions} held back`,
       ok: true,
     },
   ];
 
   return (
-    <Card title="Compliance & stopping rules" subtitle="Hard limits enforced in code, not just documented">
+    <Card
+      title="Compliance &amp; stopping rules"
+      subtitle="Hard limits enforced in code, with a test that regenerates a fresh batch on a new seed and proves the first one holds"
+    >
       <div className="grid gap-3 sm:grid-cols-3">
         {rules.map((r) => (
           <div key={r.title} className="rounded-lg border border-border bg-surface-2/50 p-3">

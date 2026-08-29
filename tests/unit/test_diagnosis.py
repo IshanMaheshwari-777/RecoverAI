@@ -1,13 +1,13 @@
 import pytest
 
-from revenue_recovery.domain.enums import (
+from recover_ai.domain.enums import (
     DiagnosisAction,
     DiagnosisMethod,
     FailureReason,
     TransactionStatus,
 )
-from revenue_recovery.domain.errors import NothingToDiagnoseError
-from revenue_recovery.services.diagnosis import _RULES, DiagnosisEngine
+from recover_ai.domain.errors import NothingToDiagnoseError
+from recover_ai.services.diagnosis import _RULES, DiagnosisEngine
 from tests.conftest import FakeLLM
 
 

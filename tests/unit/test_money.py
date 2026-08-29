@@ -1,6 +1,6 @@
 import pytest
 
-from revenue_recovery.domain.money import Money
+from recover_ai.domain.money import Money
 
 
 @pytest.mark.parametrize(

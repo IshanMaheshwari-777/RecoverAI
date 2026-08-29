@@ -9,10 +9,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     # a fresh store per test, bound to the tmp cwd from _hermetic_env
     import importlib
 
-    from revenue_recovery.api import store as store_mod
+    from recover_ai.api import store as store_mod
 
     importlib.reload(store_mod)
-    from revenue_recovery.api import main as main_mod
+    from recover_ai.api import main as main_mod
 
     importlib.reload(main_mod)
     return TestClient(main_mod.app)

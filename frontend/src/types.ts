@@ -1,4 +1,4 @@
-// Mirrors revenue_recovery.domain.results.PipelineReport (JSON shape).
+// Mirrors recover_ai.domain.results.PipelineReport (JSON shape).
 
 export type DiagnosisMethod = "rule" | "llm" | "llm_fallback" | "unhandled";
 export type DiagnosisAction =

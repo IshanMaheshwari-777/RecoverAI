@@ -2,12 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// The build lands directly in the Python package so `revenue-recovery serve`
+// The build lands directly in the Python package so `recover-ai serve`
 // (FastAPI) can host it with zero extra steps.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    outDir: "../src/revenue_recovery/api/static",
+    outDir: "../src/recover_ai/api/static",
     emptyOutDir: true,
   },
   server: {

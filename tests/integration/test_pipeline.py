@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from revenue_recovery.adapters.synthetic import generate_batch
-from revenue_recovery.app import run_pipeline
-from revenue_recovery.config import get_settings
-from revenue_recovery.services.diagnosis import DiagnosisEngine
-from revenue_recovery.services.recovery import RecoveryEngine
+from recover_ai.adapters.synthetic import generate_batch
+from recover_ai.app import run_pipeline
+from recover_ai.config import get_settings
+from recover_ai.services.diagnosis import DiagnosisEngine
+from recover_ai.services.recovery import RecoveryEngine
 from tests.conftest import FakeLLM
 
 
@@ -51,7 +51,7 @@ def test_compliance_invariant_holds_across_a_fresh_large_batch() -> None:
 
 
 def test_report_is_json_roundtrippable() -> None:
-    from revenue_recovery.domain.results import PipelineReport
+    from recover_ai.domain.results import PipelineReport
 
     report = run_pipeline(count=80, seed=3)
     restored = PipelineReport.model_validate_json(report.model_dump_json())

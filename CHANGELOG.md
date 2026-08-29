@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-08-29
+
+### Changed
+- **Renamed to Recover AI.** Python package `revenue_recovery` → `recover_ai`,
+  CLI `revenue-recovery` → `recover-ai`, product name throughout.
+- **Dashboard rebuilt around four tabs** — Overview · Decision flow · Audit
+  trail · How it works — replacing a single 2,700 px scroll. Everything a
+  reader needs is now one screen deep.
+- **Run agent** moved into the header as the primary action, with a settings
+  popover (batch size / seed / inject a corrupt record) and a completion toast.
+- Audit rows are **expandable**: the message Claude wrote, the Razorpay object
+  created, the model + latency + confidence, the strategy applied, and why the
+  compliance layer allowed it.
+- Plain-English copy throughout; hover explainers on every metric that needs
+  one. Jargon (`llm_fallback`, `razorpay_api_simulated`) is now secondary.
+
+### Added
+- **How it works** tab: the nine failure cases in plain English, the stopping
+  rules and the real-world penalty behind each, and a side-by-side explanation
+  of projected vs. confirmed recovery.
+- Webhook simulator shows an `n of m confirmed` meter and warns when every
+  retry is marked paid (the theoretical ceiling, not a realistic outcome).
+
 ## [1.1.0] — 2026-08-29
 
 ### Changed
@@ -52,7 +75,7 @@ First complete cut for the Razorpay AI Buildathon, Track 03.
   confirmed recovery.
 
 ### Delivery
-- `revenue-recovery` CLI (`run`, `report`, `serve`, `demo`).
+- `recover-ai` CLI (`run`, `report`, `serve`, `demo`).
 - FastAPI JSON API + OpenAPI docs.
 - React + Vite dashboard: KPI tiles, decision-flow Sankey, recovery funnel,
   breakdowns, compliance panel, filterable audit trail, run + webhook

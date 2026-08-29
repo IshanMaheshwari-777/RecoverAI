@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
-from revenue_recovery.adapters.synthetic import generate_batch
-from revenue_recovery.domain.enums import TransactionStatus
-from revenue_recovery.domain.money import Money
+from recover_ai.adapters.synthetic import generate_batch
+from recover_ai.domain.enums import TransactionStatus
+from recover_ai.domain.money import Money
 
 _FIXED = datetime(2026, 6, 1, tzinfo=UTC)
 

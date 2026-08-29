@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from revenue_recovery.cli import app
+from recover_ai.cli import app
 
 runner = CliRunner()
 
@@ -10,7 +10,7 @@ runner = CliRunner()
 def test_version() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "revenue-recovery-agent" in result.stdout
+    assert "recover-ai" in result.stdout
 
 
 def test_run_writes_a_report_and_prints_the_headline() -> None:

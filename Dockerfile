@@ -6,7 +6,7 @@ WORKDIR /web
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build   # vite emits to ../src/revenue_recovery/api/static
+RUN npm run build   # vite emits to ../src/recover_ai/api/static
 
 # --- stage 2: the app ---------------------------------------------------
 FROM python:3.12-slim AS app
@@ -21,7 +21,7 @@ COPY src/ ./src/
 RUN pip install --no-cache-dir .
 
 # built dashboard from stage 1
-COPY --from=web /src/revenue_recovery/api/static/ ./src/revenue_recovery/api/static/
+COPY --from=web /src/recover_ai/api/static/ ./src/recover_ai/api/static/
 
 RUN useradd -u 10001 -m app && mkdir -p /data && chown -R app /data /app
 USER app
@@ -31,4 +31,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"
 
-CMD ["uvicorn", "revenue_recovery.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "recover_ai.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

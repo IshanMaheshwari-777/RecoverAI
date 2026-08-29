@@ -57,10 +57,10 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t revenue-recovery-agent:ci .
+      - run: docker build -t recover-ai:ci .
       - name: Smoke-test the image
         run: |
-          docker run -d --name rra -p 8000:8000 revenue-recovery-agent:ci
+          docker run -d --name rra -p 8000:8000 recover-ai:ci
           sleep 5
           curl -fsS http://localhost:8000/api/health
           docker rm -f rra

@@ -20,13 +20,13 @@ build-web: ## Build the React dashboard into the Python package
 	cd frontend && npm install --silent && npm run build
 
 run: ## Run the pipeline once, write data/pipeline_report.json
-	$(PY) -m revenue_recovery.cli run
+	$(PY) -m recover_ai.cli run
 
 demo: ## Run the pipeline, then serve the dashboard at :8000
-	$(PY) -m revenue_recovery.cli demo
+	$(PY) -m recover_ai.cli demo
 
 serve: ## Serve the API + dashboard (assumes a report exists)
-	$(PY) -m revenue_recovery.cli serve --reload
+	$(PY) -m recover_ai.cli serve --reload
 
 test: ## Run the test suite with coverage
 	$(PY) -m pytest
