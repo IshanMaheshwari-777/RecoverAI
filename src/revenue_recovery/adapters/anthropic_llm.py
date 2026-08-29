@@ -11,6 +11,11 @@ from revenue_recovery.ports.llm import LLMReply
 
 log = get_logger(__name__)
 
+# `output_config.effort` is only accepted on the Opus-5 / Sonnet-5 / Fable
+# tiers; Haiku 4.5 (the default) and older models 400 on it.
+_EFFORT_MODELS = ("claude-opus-5", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-5",
+                  "claude-fable-5")
+
 
 class AnthropicLLM:
     def __init__(self, api_key: str, model: str) -> None:
@@ -35,15 +40,19 @@ class AnthropicLLM:
             self._client = anthropic.Anthropic(api_key=self._api_key)
         return self._client
 
-    def complete(self, prompt: str, *, max_tokens: int = 1024) -> LLMReply:
+    def complete(self, prompt: str, *, max_tokens: int = 512) -> LLMReply:
         client = self._ensure_client()
+        extra: dict[str, Any] = {}
+        if self._model.startswith(_EFFORT_MODELS):
+            extra["output_config"] = {"effort": "low"}
+
         started = time.perf_counter()
         try:
             response = client.messages.create(
                 model=self._model,
                 max_tokens=max_tokens,
-                output_config={"effort": "low"},
                 messages=[{"role": "user", "content": prompt}],
+                **extra,
             )
         except Exception as exc:
             log.warning("llm_call_failed", error=str(exc))

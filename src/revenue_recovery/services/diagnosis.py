@@ -153,7 +153,7 @@ class DiagnosisEngine:
             method=txn.method.value,
         )
         try:
-            reply = self._llm.complete(prompt, max_tokens=1024)
+            reply = self._llm.complete(prompt, max_tokens=400)
             payload = _parse_json(reply.text)
             action = DiagnosisAction(str(payload["action"]))
             return Diagnosis(

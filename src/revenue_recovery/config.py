@@ -1,11 +1,19 @@
 """Typed configuration, loaded once from the environment and `.env`.
 
+Only three things ever need to be set, and none are required -- the agent
+runs fully without them:
+
+    RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET   live payment links (else simulated)
+    ANTHROPIC_API_KEY                       LLM diagnosis + copy (else fallback)
+
+Everything else has a sane default and is only there for tuning.
+
 Placeholder scrubbing: `.env.example` ships with obviously-fake values
 (`sk-ant-xxxx...`). If someone copies it without filling every field we
 must not hand those to the real SDKs -- a bogus key yields a confusing
 401 instead of the clean "no credential -> deterministic fallback"
-behaviour the agent is built around. Any credential still matching a
-placeholder pattern is treated as unset.
+behaviour. Any credential still matching a placeholder pattern is treated
+as unset.
 """
 
 from __future__ import annotations
@@ -33,18 +41,21 @@ class Settings(BaseSettings):
         env_prefix="",
     )
 
-    # -- credentials -----------------------------------------------------
+    # -- the only three that matter (all optional) ----------------------
     razorpay_key_id: SecretStr | None = None
     razorpay_key_secret: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
 
-    # -- behaviour -----------------------------------------------------
-    llm_model: str = Field(default="claude-opus-5", alias="RECOVERY_LLM_MODEL")
+    # -- tuning (defaults are fine; override via env if you want) -------
+    # Claude Haiku 4.5 -- the two LLM calls are tiny (a short JSON decision
+    # and a 2-3 sentence message), so the cheapest capable model is the
+    # right default: ~$1 / $5 per Mtok, a few hundredths of a cent per run.
+    llm_model: str = Field(default="claude-haiku-4-5", alias="RECOVERY_LLM_MODEL")
     live_link_budget: int = Field(
         default=8,
         alias="RAZORPAY_LIVE_LINK_BUDGET",
-        description="Max genuinely-live Razorpay link creations per run before "
-        "labelled simulation takes over (test-mode API rate-limits hard).",
+        description="Genuinely-live Razorpay link creations per run before "
+        "labelled simulation takes over (test mode caps at 30 links total).",
     )
     data_dir: str = Field(default="data", alias="RECOVERY_DATA_DIR")
     log_json: bool = Field(default=False, alias="RECOVERY_LOG_JSON")

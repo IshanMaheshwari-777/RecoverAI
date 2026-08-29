@@ -138,7 +138,7 @@ class Executor:
                 _MESSAGE_PROMPT.format(
                     cause=diagnosis.root_cause, amount=txn.amount.format(), ask=ask
                 ),
-                max_tokens=1024,
+                max_tokens=300,
             )
             return reply.text, ExecutionMethod.LLM_MESSAGE
         except LLMUnavailableError:
