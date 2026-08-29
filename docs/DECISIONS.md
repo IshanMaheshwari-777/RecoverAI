@@ -56,7 +56,20 @@ The pipeline produces a single `PipelineReport`. Every headline number is a
 `@staticmethod` derivation from `results` — never stored twice, never able to
 drift. The CLI, the API, the SPA, and the tests all read the same object.
 
-### 8. React SPA + JSON API over a static HTML file
+### 8. Three-phase concurrent pipeline
+
+With a live LLM, a 180-transaction batch is ~55 model calls plus ~35
+payment-gateway calls. Run sequentially that's ~100 s — unusable in a demo
+or a webhook handler. `Pipeline.run` splits into three phases: **diagnose**
+(parallel, transactions are independent), **decide** (strictly sequential
+in chronological order — the recovery engine's per-customer contact
+history must see events as they happened), **execute** (parallel again).
+Same result, ~8 s. The mutable adapters (`RazorpayGateway` budget,
+`AnthropicLLM` lazy client) carry a lock; everything else is stateless.
+The containment boundary moved into `_concurrent` — one transaction's
+raise is captured and never touches the pool's other work.
+
+### 9. React SPA + JSON API over a static HTML file
 
 An earlier cut rendered a self-contained HTML file. A real API + SPA is worth
 the build step: the webhook flow is interactive, runs are triggerable, the

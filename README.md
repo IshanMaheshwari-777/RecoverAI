@@ -144,9 +144,15 @@ Enforced in `services/recovery.py`, not just documented:
 
 `revenue-recovery run --inject-failure` adds one record with a corrupted amount
 (bypassing model validation, as bad upstream data does). It fails deep in the
-executor; `Pipeline` catches it per-transaction, records an audit entry for the
-failure, and **the rest of the batch is processed normally** — asserted in
+executor; the pipeline captures it per-transaction (inside the concurrent
+thread pool — see below), records an audit entry for the failure, and **the
+rest of the batch is processed normally** — asserted in
 `test_poisoned_record_fails_alone_and_the_batch_continues`.
+
+**Speed.** Diagnose and execute run concurrently across the batch; decide stays
+sequential in chronological order (the recovery engine is stateful). A live
+180-transaction run — ~55 LLM calls + ~35 gateway calls — takes **~8 s**, not
+~100 s. Fast enough to trigger from the dashboard or a webhook handler.
 
 <p align="center">
   <img src="docs/failure-containment.png" alt="Failure containment panel" width="880">

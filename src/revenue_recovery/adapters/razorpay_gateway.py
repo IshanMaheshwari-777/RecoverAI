@@ -12,6 +12,7 @@ was live.
 
 from __future__ import annotations
 
+import threading
 import time
 
 from revenue_recovery.adapters.simulated_gateway import SimulatedGateway
@@ -23,11 +24,17 @@ from revenue_recovery.ports.payments import PaymentLink
 log = get_logger(__name__)
 
 _MAX_ATTEMPTS = 3
-_BACKOFF_SECONDS = (1.0, 2.0)
+_BACKOFF_SECONDS = (0.5, 1.0)
 
 
 def _is_rate_limit(exc: Exception) -> bool:
     return "too many requests" in str(exc).lower() or "rate" in type(exc).__name__.lower()
+
+
+def _is_quota_exhausted(exc: Exception) -> bool:
+    # test accounts cap payment_link creation at 30, ever -- never recovers
+    m = str(exc).lower()
+    return "limit" in m and "reached" in m
 
 
 class RazorpayGateway:
@@ -39,8 +46,10 @@ class RazorpayGateway:
         self._auth = (key_id, key_secret)
         self._budget = live_link_budget
         self._consecutive_rate_limits = 0
+        self._quota_exhausted = False
         self._client = None
         self._sim = SimulatedGateway()
+        self._lock = threading.Lock()  # guards the mutable counters above
 
     @property
     def live_links_remaining(self) -> int:
@@ -48,26 +57,32 @@ class RazorpayGateway:
 
     @property
     def _circuit_open(self) -> bool:
-        return self._consecutive_rate_limits >= self._CIRCUIT_TRIP_AFTER
+        return self._quota_exhausted or self._consecutive_rate_limits >= self._CIRCUIT_TRIP_AFTER
 
     def _ensure_client(self) -> object:
-        if self._client is None:
-            import razorpay
+        with self._lock:
+            if self._client is None:
+                import razorpay
 
-            self._client = razorpay.Client(auth=self._auth)
-        return self._client
+                self._client = razorpay.Client(auth=self._auth)
+            return self._client
 
     def create_payment_link(
         self, *, amount: Money, order_id: str, description: str, note: str
     ) -> PaymentLink:
-        if self._budget <= 0 or self._circuit_open:
+        with self._lock:
+            if self._budget <= 0 or self._circuit_open:
+                spend = False
+            else:
+                # Spend one budget unit per real attempt, win or lose, so the
+                # budget is a hard bound on how long the live path can run.
+                self._budget -= 1
+                spend = True
+        if not spend:
             return self._sim.create_payment_link(
                 amount=amount, order_id=order_id, description=description, note=note
             )
 
-        # Spend one budget unit per real attempt, win or lose, so the budget
-        # is a hard bound on how long the live path can run.
-        self._budget -= 1
         client = self._ensure_client()
         payload = {
             "amount": amount.paise,
@@ -81,7 +96,8 @@ class RazorpayGateway:
         for attempt in range(_MAX_ATTEMPTS):
             try:
                 raw = client.payment_link.create(payload)  # type: ignore[attr-defined]
-                self._consecutive_rate_limits = 0
+                with self._lock:
+                    self._consecutive_rate_limits = 0
                 log.info("razorpay_link_created", link_id=raw["id"], order_id=order_id)
                 return PaymentLink(
                     id=raw["id"],
@@ -93,8 +109,11 @@ class RazorpayGateway:
                 if _is_rate_limit(exc) and attempt < _MAX_ATTEMPTS - 1:
                     time.sleep(_BACKOFF_SECONDS[attempt])
                     continue
-                if _is_rate_limit(exc):
-                    self._consecutive_rate_limits += 1
+                with self._lock:
+                    if _is_rate_limit(exc):
+                        self._consecutive_rate_limits += 1
+                    if _is_quota_exhausted(exc):
+                        self._quota_exhausted = True
                 method = (
                     ExecutionMethod.RAZORPAY_API_RATELIMITED
                     if _is_rate_limit(exc)

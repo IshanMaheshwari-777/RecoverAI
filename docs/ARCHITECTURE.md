@@ -56,8 +56,12 @@ flowchart LR
 | **Execute** | `services/execution.py` | payment link / message + audit entry | LLM drafts copy only |
 | Report | `domain/results.py` | derive every headline number | no |
 
-`services/pipeline.py` runs Diagnose → Decide → Execute per transaction
-inside a `try/except` that is the containment boundary.
+`services/pipeline.py` runs Diagnose and Execute **concurrently** across
+the batch (thread pool, default 16 workers) and Decide **sequentially** in
+chronological order between them — the recovery engine is stateful and
+must see events as they happened. A per-transaction raise in either
+parallel phase is captured and never affects the rest. With a live LLM a
+180-transaction batch runs in ~8 s instead of ~100 s.
 
 ## Why the rule/LLM split is where it is
 

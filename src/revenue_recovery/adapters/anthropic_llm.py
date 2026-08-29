@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -13,8 +14,13 @@ log = get_logger(__name__)
 
 # `output_config.effort` is only accepted on the Opus-5 / Sonnet-5 / Fable
 # tiers; Haiku 4.5 (the default) and older models 400 on it.
-_EFFORT_MODELS = ("claude-opus-5", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-5",
-                  "claude-fable-5")
+_EFFORT_MODELS = (
+    "claude-opus-5",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-fable-5",
+)
 
 
 class AnthropicLLM:
@@ -22,6 +28,7 @@ class AnthropicLLM:
         self._api_key = api_key
         self._model = model
         self._client: Any = None  # lazily constructed anthropic.Anthropic
+        self._lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -32,13 +39,14 @@ class AnthropicLLM:
         return self._model
 
     def _ensure_client(self) -> Any:
-        if self._client is None:
-            try:
-                import anthropic
-            except ImportError as exc:  # pragma: no cover
-                raise LLMUnavailableError("anthropic SDK not installed") from exc
-            self._client = anthropic.Anthropic(api_key=self._api_key)
-        return self._client
+        with self._lock:
+            if self._client is None:
+                try:
+                    import anthropic
+                except ImportError as exc:  # pragma: no cover
+                    raise LLMUnavailableError("anthropic SDK not installed") from exc
+                self._client = anthropic.Anthropic(api_key=self._api_key)
+            return self._client
 
     def complete(self, prompt: str, *, max_tokens: int = 512) -> LLMReply:
         client = self._ensure_client()
