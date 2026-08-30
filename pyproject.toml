@@ -9,7 +9,7 @@ description = "An AI agent that diagnoses failed Razorpay payments and drives co
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Swanand M", email = "swanandm@gmail.com" }]
+authors = [{ name = "Ishan Maheshwari", email = "ishan77maheshwari@gmail.com" }]
 keywords = ["razorpay", "payments", "recover-ai", "agent", "fintech"]
 classifiers = [
     "Programming Language :: Python :: 3.11",
