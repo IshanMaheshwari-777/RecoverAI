@@ -9,11 +9,12 @@
       content="Diagnose failed Razorpay payments and drive compliant, bounded recovery."
     />
     <script>
-      // Set theme before paint to avoid a flash.
+      // Set theme before paint to avoid a flash. Dark-first: dark unless a
+      // stored choice or the OS explicitly asks for light.
       try {
-        const t = localStorage.getItem("rra-theme");
-        const dark = t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.toggle("dark", dark);
+        const t = localStorage.getItem("recover-ai-theme");
+        const light = t === "light" || (!t && window.matchMedia("(prefers-color-scheme: light)").matches);
+        document.documentElement.classList.toggle("dark", !light);
       } catch (_) {}
     </script>
   </head>
