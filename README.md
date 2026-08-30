@@ -10,7 +10,7 @@
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white">
   <img alt="typed: strict" src="https://img.shields.io/badge/mypy-strict-2a78d6">
   <img alt="lint: ruff" src="https://img.shields.io/badge/lint-ruff-eb6834">
-  <img alt="coverage 91%" src="https://img.shields.io/badge/coverage-91%25-1baf7a">
+  <img alt="coverage 93%" src="https://img.shields.io/badge/coverage-93%25-1baf7a">
   <img alt="license MIT" src="https://img.shields.io/badge/license-MIT-black">
 </p>
 
@@ -147,7 +147,7 @@ src/recover_ai/
 └── cli.py         Typer:  run / report / serve / demo
 
 frontend/          React + Vite + Tailwind dashboard
-tests/             unit · integration · e2e   (hermetic; 62 tests, 91% cov)
+tests/             unit · integration · e2e   (hermetic; 69 tests, 93% cov)
 ```
 
 ---
