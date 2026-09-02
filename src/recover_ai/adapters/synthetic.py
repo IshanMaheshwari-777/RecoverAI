@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from recover_ai.domain.enums import (
+    DiagnosisAction,
     ErrorSource,
     FailureReason,
     PaymentMethod,
@@ -26,6 +27,7 @@ from recover_ai.domain.enums import (
 )
 from recover_ai.domain.models import ErrorDetail, Transaction
 from recover_ai.domain.money import Money
+from recover_ai.domain.policy import Policy
 
 _ALL_METHODS: list[PaymentMethod] = list(PaymentMethod)
 
@@ -208,3 +210,56 @@ def generate_batch(
 
     out.sort(key=lambda t: t.created_at)
     return out
+
+
+# -- historical outcomes for the learning warm-start --------------------
+
+# "True" conversion rates the learning loop should discover -- deliberately
+# a little different from the policy priors, so the calibration curve shows
+# the model moving off its prior toward reality.
+_TRUE_RATE: dict[DiagnosisAction, float] = {
+    DiagnosisAction.RETRY_NOW: 0.52,
+    DiagnosisAction.RETRY_LATER: 0.34,
+    DiagnosisAction.SEND_REMINDER: 0.17,
+    DiagnosisAction.REQUEST_UPDATE: 0.19,
+}
+_REASON_BY_ACTION: dict[DiagnosisAction, list[FailureReason]] = {
+    DiagnosisAction.RETRY_NOW: [
+        FailureReason.INVALID_OTP,
+        FailureReason.GATEWAY_TIMEOUT,
+        FailureReason.NETWORK_ISSUE,
+    ],
+    DiagnosisAction.RETRY_LATER: [FailureReason.INSUFFICIENT_FUNDS, FailureReason.PAYMENT_DECLINED],
+    DiagnosisAction.SEND_REMINDER: [FailureReason.PAYMENT_CANCELLED],
+    DiagnosisAction.REQUEST_UPDATE: [FailureReason.CARD_EXPIRED, FailureReason.PAYMENT_DECLINED],
+}
+
+
+def generate_history(
+    policy: Policy, seed: int, *, observations: int = 320
+) -> list[tuple[str, bool, float]]:
+    """Deterministic (conversion_key, converted, predicted_at_the_time)
+    tuples -- a plausible outcome log to warm-start the learning loop so a
+    fresh install still has calibrated posteriors and a reliability curve.
+    """
+    from recover_ai.services.learning import conversion_key
+
+    rng = random.Random(f"history-{seed}")
+    actions = [
+        DiagnosisAction.RETRY_NOW,
+        DiagnosisAction.RETRY_LATER,
+        DiagnosisAction.SEND_REMINDER,
+        DiagnosisAction.REQUEST_UPDATE,
+    ]
+    bands = [policy.amount_band(x) for x in (500, 2500, 8000, 20000)]
+    rows: list[tuple[str, bool, float]] = []
+    for _ in range(observations):
+        action = rng.choice(actions)
+        method = rng.choice(_ALL_METHODS)
+        reason = rng.choice(_REASON_BY_ACTION[action])
+        band = rng.choice(bands)
+        true_rate = _TRUE_RATE[action] * rng.uniform(0.85, 1.15)
+        converted = rng.random() < min(true_rate, 0.95)
+        predicted = policy.conversion_priors.mean_for(action)
+        rows.append((conversion_key(action, method, reason, band), converted, predicted))
+    return rows

@@ -26,6 +26,7 @@ class RecoveryDecision(BaseModel):
     reason: str
     strategy: str = "default"  # per-method playbook that was applied
     scheduled_for: datetime | None = None  # when a retry should fire (retry_later)
+    held_for_incident: bool = False  # blocked only because the rail is degraded now
 
     @property
     def escalated(self) -> bool:

@@ -75,6 +75,29 @@ class ExecutionMethod(StrEnum):
     BLOCKED = "blocked"
     UNHANDLED = "unhandled"
     PIPELINE_ERROR = "pipeline_error"
+    HOLDOUT_CONTROL = "holdout_control"  # in the causal control group -- decided, not executed
+    RETRY_HELD_INCIDENT = "retry_held_incident"  # rail is degraded -- retry deferred
+    SKIPPED_NEGATIVE_EV = "skipped_negative_ev"  # not worth the cost of pursuing
+    SHADOW = "shadow"  # shadow mode -- what we would have done
+
+
+class Channel(StrEnum):
+    """How a customer is reached. Payment link is its own channel; the
+    rest are messaging rails, cheapest-effective first."""
+
+    PAYMENT_LINK = "payment_link"
+    IN_APP = "in_app"
+    EMAIL = "email"
+    SMS = "sms"
+    WHATSAPP = "whatsapp"
+
+
+MESSAGING_LADDER: tuple[Channel, ...] = (
+    Channel.IN_APP,
+    Channel.EMAIL,
+    Channel.SMS,
+    Channel.WHATSAPP,
+)
 
 
 class RecoveryOutcome(StrEnum):

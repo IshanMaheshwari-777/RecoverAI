@@ -1,9 +1,12 @@
 """In-process holder for the current pipeline report.
 
 The report lives on disk (data/pipeline_report.json); this wraps it with
-a lock and a couple of mutations the API needs (running a fresh pipeline,
-applying a webhook confirmation). It is deliberately simple -- a real
-deployment would put runs in a database and a queue.
+a lock and the mutations the API needs -- running a fresh pipeline, and
+applying a webhook confirmation. A `payment_link.paid` webhook does two
+things: it flips the audit entry's *confirmed* outcome, and it feeds the
+learning loop a real, labelled observation so the conversion posteriors
+move toward reality. It is deliberately simple -- a real deployment puts
+runs in a database and a queue.
 """
 
 from __future__ import annotations
@@ -13,8 +16,10 @@ import threading
 from recover_ai.app import load_report, run_pipeline, save_report
 from recover_ai.config import get_settings
 from recover_ai.domain.enums import RecoveryOutcome
+from recover_ai.domain.policy import Policy
 from recover_ai.domain.results import PipelineReport, TransactionResult
 from recover_ai.logging import get_logger
+from recover_ai.services.learning import load_learning, save_learning
 
 log = get_logger(__name__)
 
@@ -28,19 +33,19 @@ class ReportStore:
     def report(self) -> PipelineReport | None:
         return self._report
 
-    def run(self, *, count: int, seed: int, inject_failure: bool) -> PipelineReport:
+    def run(
+        self, *, count: int, seed: int, inject_failure: bool, mode: str = "live"
+    ) -> PipelineReport:
         with self._lock:
-            report = run_pipeline(count=count, seed=seed, inject_failure=inject_failure)
-            save_report(report)
+            report = run_pipeline(count=count, seed=seed, inject_failure=inject_failure, mode=mode)
+            if mode == "live":
+                save_report(report)
             self._report = report
             return report
 
     def confirm_payment(self, payment_link_id: str) -> TransactionResult | None:
-        """Flip one audit entry's confirmed outcome to RECOVERED.
-
-        This is what a real `payment_link.paid` webhook from Razorpay would
-        drive -- turning a *projected* recovery into a *confirmed* one.
-        """
+        """A `payment_link.paid` webhook: mark the entry confirmed and feed
+        the learning loop the real outcome."""
         with self._lock:
             if self._report is None:
                 return None
@@ -59,6 +64,8 @@ class ReportStore:
             if updated is None:
                 return None
 
+            self._observe(updated, converted=True)
+
             summary = PipelineReport.summarise(
                 total_transactions=self._report.summary.total_transactions,
                 results=new_results,
@@ -69,6 +76,19 @@ class ReportStore:
             save_report(self._report)
             log.info("webhook_confirmed", payment_link_id=payment_link_id)
             return updated
+
+    @staticmethod
+    def _observe(result: TransactionResult, *, converted: bool) -> None:
+        entry = result.audit_entry
+        if not entry.conversion_key:
+            return
+        settings = get_settings()
+        policy = Policy.load(settings.data_dir)
+        learning = load_learning(policy, settings.data_dir)
+        learning.observe_conversion(
+            entry.conversion_key, converted=converted, predicted=entry.predicted_rate
+        )
+        save_learning(learning, settings.data_dir)
 
 
 store = ReportStore()

@@ -19,29 +19,45 @@ real per-customer contact history, so rule 3 is genuinely path-dependent
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from recover_ai.domain.diagnosis import Diagnosis
-from recover_ai.domain.enums import CONTACT_ACTIONS, RETRY_ACTIONS, DiagnosisAction
+from recover_ai.domain.enums import CONTACT_ACTIONS, RETRY_ACTIONS, DiagnosisAction, FailureReason
 from recover_ai.domain.models import Transaction
+from recover_ai.domain.policy import Policy
 from recover_ai.domain.recovery import RecoveryDecision
 from recover_ai.services.strategies import retry_delay, strategy_for
 
+# Retained for backwards compatibility; the live values come from Policy.
 MAX_CONTACTS_PER_CUSTOMER_WINDOW = 2
 CONTACT_WINDOW = timedelta(hours=48)
 
+# (reason, method) pairs whose rail is currently degraded -- retries against
+# them are deferred rather than piled onto a struggling gateway.
+RailKey = tuple[FailureReason, str]
+
 
 class RecoveryEngine:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        policy: Policy | None = None,
+        *,
+        retry_hold_rails: Callable[[Transaction], bool] | None = None,
+    ) -> None:
+        self._policy = policy or Policy()
+        self._cap = self._policy.contact_cap_per_window
+        self._window = timedelta(hours=self._policy.contact_window_hours)
+        self._retry_hold = retry_hold_rails or (lambda _t: False)
         self._contact_log: dict[str, list[datetime]] = {}
 
     # -- contact cap bookkeeping ------------------------------------------
     def _recent_contacts(self, customer_id: str, at: datetime) -> int:
-        cutoff = at - CONTACT_WINDOW
+        cutoff = at - self._window
         return sum(1 for t in self._contact_log.get(customer_id, []) if t >= cutoff)
 
     def _within_contact_cap(self, customer_id: str, at: datetime) -> bool:
-        return self._recent_contacts(customer_id, at) < MAX_CONTACTS_PER_CUSTOMER_WINDOW
+        return self._recent_contacts(customer_id, at) < self._cap
 
     def _record_contact(self, customer_id: str, at: datetime) -> None:
         self._contact_log.setdefault(customer_id, []).append(at)
@@ -62,6 +78,20 @@ class RecoveryEngine:
 
         # Rule 2 -- retries capped per transaction / method.
         if diagnosis.action in RETRY_ACTIONS:
+            if self._retry_hold(txn):
+                return RecoveryDecision(
+                    transaction_id=txn.id,
+                    customer_id=txn.customer_id,
+                    diagnosis_action=diagnosis.action,
+                    final_action=None,
+                    blocked=True,
+                    held_for_incident=True,
+                    reason=(
+                        f"The {txn.method.value} rail is degraded right now "
+                        "(incident detected in this batch) -- retry deferred, not abandoned."
+                    ),
+                    strategy=strat.name,
+                )
             if txn.attempt_number >= strat.max_retries:
                 if not self._within_contact_cap(txn.customer_id, at):
                     return self._blocked_by_contact_cap(txn, diagnosis, strat.name)
@@ -142,8 +172,8 @@ class RecoveryEngine:
             txn,
             diagnosis,
             strategy,
-            f"Customer already contacted {MAX_CONTACTS_PER_CUSTOMER_WINDOW}+ times in the last "
-            f"48h -- holding off to avoid spamming them.",
+            f"Customer already contacted {self._cap}+ times in the last "
+            f"{self._policy.contact_window_hours}h -- holding off to avoid spamming them.",
         )
 
 

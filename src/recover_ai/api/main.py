@@ -9,19 +9,21 @@ GET  /                            -> the built SPA (api/static)
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from recover_ai import __version__
 from recover_ai.api.store import store
 from recover_ai.config import get_settings
 from recover_ai.domain.results import PipelineReport
 from recover_ai.logging import configure
+from recover_ai.services.webhooks import verify_signature
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -30,6 +32,7 @@ class RunRequest(BaseModel):
     count: int = Field(default=180, ge=1, le=2000)
     seed: int = Field(default=42, ge=0)
     inject_failure: bool = False
+    mode: Literal["live", "shadow"] = "live"
 
 
 class RazorpayWebhook(BaseModel):
@@ -44,6 +47,7 @@ class HealthResponse(BaseModel):
     version: str
     razorpay_live: bool
     anthropic_live: bool
+    webhook_verified: bool
 
 
 def create_app() -> FastAPI:
@@ -70,6 +74,7 @@ def create_app() -> FastAPI:
             version=__version__,
             razorpay_live=s.razorpay_available,
             anthropic_live=s.anthropic_available,
+            webhook_verified=s.razorpay_webhook_secret is not None,
         )
 
     @app.get("/api/report", response_model=PipelineReport, tags=["report"])
@@ -78,12 +83,34 @@ def create_app() -> FastAPI:
             raise HTTPException(404, "No pipeline run yet -- POST /api/runs first.")
         return store.report
 
+    @app.get("/api/learning", tags=["report"])
+    def get_learning() -> dict[str, object]:
+        if store.report is None or store.report.learning is None:
+            raise HTTPException(404, "No learning state yet.")
+        return store.report.learning
+
     @app.post("/api/runs", response_model=PipelineReport, tags=["report"])
     def create_run(body: RunRequest) -> PipelineReport:
-        return store.run(count=body.count, seed=body.seed, inject_failure=body.inject_failure)
+        return store.run(
+            count=body.count,
+            seed=body.seed,
+            inject_failure=body.inject_failure,
+            mode=body.mode,
+        )
 
     @app.post("/api/webhooks/razorpay", tags=["webhooks"])
-    def razorpay_webhook(body: RazorpayWebhook) -> dict[str, str]:
+    async def razorpay_webhook(request: Request) -> dict[str, str]:
+        raw = await request.body()
+        secret = get_settings().razorpay_webhook_secret
+        if secret is not None:
+            sig = request.headers.get("x-razorpay-signature")
+            if not verify_signature(raw, sig, secret.get_secret_value()):
+                raise HTTPException(401, "Invalid or missing webhook signature.")
+        try:
+            body = RazorpayWebhook.model_validate(json.loads(raw))
+        except (ValidationError, json.JSONDecodeError) as exc:
+            raise HTTPException(422, f"Unprocessable webhook body: {exc}") from exc
+
         result = store.confirm_payment(body.payment_link_id)
         if result is None:
             raise HTTPException(404, f"No pending action for link {body.payment_link_id}")

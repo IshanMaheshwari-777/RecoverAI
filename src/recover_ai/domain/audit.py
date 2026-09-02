@@ -1,7 +1,7 @@
 """The immutable record of what the agent did to one transaction.
 
-One entry per decision -- executed, blocked, or crashed. An audit trail
-that only records successes is not an audit trail.
+One entry per decision -- executed, blocked, held out, or crashed. An
+audit trail that only records successes is not an audit trail.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from recover_ai.domain.enums import (
+    Channel,
     DiagnosisAction,
     DiagnosisMethod,
     ExecutionMethod,
@@ -38,9 +39,25 @@ class AuditLogEntry(BaseModel):
     scheduled_for: datetime | None = None
     recorded_at: datetime = Field(default_factory=datetime.now)
 
+    # -- learning / economics / experiment metadata --------------------
+    policy_version: str | None = None
+    conversion_key: str | None = None  # the (action|method|reason|band) learning key
+    predicted_rate: float | None = None  # posterior conversion probability used
+    net_expected_value: float | None = None  # rupees, after channel + risk cost
+    channel: Channel | None = None  # how the customer was reached
+    channel_cost: float | None = None
+    held_out: bool = False  # in the causal control group -> decided, not executed
+    idempotency_key: str | None = None
+
     @property
     def recovered_amount(self) -> Money:
         """Revenue we project as recovered (0 unless the action landed)."""
         if self.executed and self.projected_outcome is RecoveryOutcome.RECOVERED:
+            return self.amount
+        return Money.zero()
+
+    @property
+    def confirmed_amount(self) -> Money:
+        if self.executed and self.confirmed_outcome is RecoveryOutcome.RECOVERED:
             return self.amount
         return Money.zero()

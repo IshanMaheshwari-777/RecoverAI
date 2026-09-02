@@ -70,6 +70,6 @@ def test_message_uses_llm_when_available(txn_factory) -> None:
 
 
 def test_projected_outcome_is_deterministic_per_transaction() -> None:
-    a = project_outcome(DiagnosisAction.RETRY_NOW, "pay_fixed")
-    b = project_outcome(DiagnosisAction.RETRY_NOW, "pay_fixed")
+    a = project_outcome(rate=0.45, transaction_id="pay_fixed")
+    b = project_outcome(rate=0.45, transaction_id="pay_fixed")
     assert a == b

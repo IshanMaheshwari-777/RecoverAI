@@ -17,11 +17,12 @@ continues -- one malformed record cannot take down the run.
 
 from __future__ import annotations
 
+import random
 import traceback
 import uuid
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TypeVar
 
@@ -39,13 +40,17 @@ from recover_ai.domain.enums import (
 )
 from recover_ai.domain.models import ErrorDetail, Transaction
 from recover_ai.domain.money import Money
+from recover_ai.domain.policy import Policy
 from recover_ai.domain.recovery import RecoveryDecision
-from recover_ai.domain.results import PipelineReport, TransactionResult
+from recover_ai.domain.results import IncidentRecord, PipelineReport, TransactionResult
 from recover_ai.logging import get_logger
 from recover_ai.ports.llm import LLMPort
 from recover_ai.ports.payments import PaymentGatewayPort
 from recover_ai.services.diagnosis import DiagnosisEngine
 from recover_ai.services.execution import Executor
+from recover_ai.services.idempotency import IdempotencyStore
+from recover_ai.services.incidents import detect as detect_incidents
+from recover_ai.services.learning import LearningStore
 from recover_ai.services.recovery import RecoveryEngine
 
 log = get_logger(__name__)
@@ -83,6 +88,9 @@ class Pipeline:
     settings: Settings
     llm: LLMPort
     gateway: PaymentGatewayPort
+    policy: Policy = field(default_factory=Policy)
+    learning: LearningStore | None = None
+    idempotency: IdempotencyStore | None = None
     max_workers: int = 16
 
     def run(
@@ -92,14 +100,13 @@ class Pipeline:
         seed: int,
         count: int,
         failure_injected: bool = False,
+        mode: str = "live",
     ) -> PipelineReport:
         started = datetime.now(tz=UTC)
         run_id = f"run_{uuid.uuid4().hex[:12]}"
-        log.info("pipeline_start", run_id=run_id, transactions=len(transactions))
+        log.info("pipeline_start", run_id=run_id, transactions=len(transactions), mode=mode)
 
         diagnoser = DiagnosisEngine(self.llm)
-        engine = RecoveryEngine()
-        executor = Executor(self.gateway, self.llm)
 
         ordered = sorted(
             (t for t in transactions if t.status is not TransactionStatus.CAPTURED),
@@ -116,6 +123,22 @@ class Pipeline:
         )
         errors.update(diag_errors)
 
+        # incident detection -- degraded rails, before we decide anything
+        incidents = detect_incidents(ordered, self.policy)
+        degraded = {inc.rail_key for inc in incidents}
+
+        def retry_hold(t: Transaction) -> bool:
+            return t.reason is not None and (t.reason, t.method) in degraded
+
+        engine = RecoveryEngine(self.policy, retry_hold_rails=retry_hold)
+        executor = Executor(
+            self.gateway,
+            self.llm,
+            learning=self.learning,
+            policy=self.policy,
+            idempotency=self.idempotency,
+        )
+
         # phase 2 -- decide, strictly in chronological order (stateful engine)
         for txn in ordered:
             if txn.id in errors:
@@ -125,9 +148,20 @@ class Pipeline:
             except Exception as exc:  # noqa: BLE001
                 errors[txn.id] = _fmt_exc(exc)
 
+        # causal holdout -- a seeded fraction of would-execute decisions,
+        # decided identically but deliberately not executed, as a control
+        held_out = _assign_holdout(decisions, self.policy.holdout_fraction, seed)
+
         # phase 3 -- execute, concurrently
+        is_shadow = mode == "shadow"
         entries, exec_errors = _concurrent(
-            lambda t: executor.execute(t, decisions[t.id], diagnoses[t.id]),
+            lambda t: executor.execute(
+                t,
+                decisions[t.id],
+                diagnoses[t.id],
+                held_out=t.id in held_out,
+                shadow=is_shadow,
+            ),
             (by_id[tid] for tid in decisions),
             max_workers=self.max_workers,
         )
@@ -157,6 +191,19 @@ class Pipeline:
                     )
                 )
 
+        # feed the learning loop: every executed action is a prediction now
+        # awaiting confirmation; record the ones the seeded model resolved so
+        # the calibration curve has points even before real webhooks arrive.
+        if self.learning is not None:
+            for r in results:
+                e = r.audit_entry
+                if e.executed and e.conversion_key and e.predicted_rate is not None:
+                    self.learning.observe_conversion(
+                        e.conversion_key,
+                        converted=e.projected_outcome is RecoveryOutcome.RECOVERED,
+                        predicted=e.predicted_rate,
+                    )
+
         finished = datetime.now(tz=UTC)
         summary = PipelineReport.summarise(total_transactions=len(transactions), results=results)
         log.info(
@@ -165,12 +212,15 @@ class Pipeline:
             completed=summary.completed,
             failed=summary.failed,
             projected_recovered=str(summary.projected_recovered),
+            incidents=len(incidents),
         )
         return PipelineReport(
             run_id=run_id,
             seed=seed,
             count=count,
             failure_injected=failure_injected,
+            mode=mode,
+            policy_version=self.policy.version,
             started_at=started,
             finished_at=finished,
             razorpay_live=self.gateway.live,
@@ -178,7 +228,34 @@ class Pipeline:
             llm_model=self.llm.model if self.llm.available else None,
             results=results,
             summary=summary,
+            incidents=[
+                IncidentRecord(
+                    reason=inc.reason.value,
+                    method=inc.method.value,
+                    count=inc.count,
+                    share=round(inc.share, 3),
+                    window_minutes=inc.window_minutes,
+                    action_taken=f"retries against {inc.method.value} deferred while degraded",
+                )
+                for inc in incidents
+            ],
+            learning=self.learning.summary() if self.learning is not None else None,
         )
+
+
+def _assign_holdout(decisions: dict[str, RecoveryDecision], fraction: float, seed: int) -> set[str]:
+    """Pick a seeded fraction of the decisions that would execute an action
+    to serve as an untouched control group."""
+    if fraction <= 0:
+        return set()
+    eligible = sorted(
+        tid for tid, d in decisions.items() if not d.blocked and d.final_action is not None
+    )
+    if not eligible:
+        return set()
+    rng = random.Random(f"holdout-{seed}")
+    k = max(1, round(len(eligible) * fraction)) if eligible else 0
+    return set(rng.sample(eligible, min(k, len(eligible))))
 
 
 def _error_entry(txn: Transaction, error: str) -> AuditLogEntry:

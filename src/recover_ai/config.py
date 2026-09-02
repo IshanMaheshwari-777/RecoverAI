@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     razorpay_key_secret: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
 
+    # Razorpay webhook signing secret. When set, `/api/webhooks/razorpay`
+    # rejects any request whose HMAC signature does not verify.
+    razorpay_webhook_secret: SecretStr | None = None
+
     # -- tuning (defaults are fine; override via env if you want) -------
     # Claude Haiku 4.5 -- the two LLM calls are tiny (a short JSON decision
     # and a 2-3 sentence message), so the cheapest capable model is the
@@ -68,7 +72,13 @@ class Settings(BaseSettings):
     # serves the SPA same-origin and needs nothing here.
     cors_origins: str = Field(default="", alias="RECOVERY_CORS_ORIGINS")
 
-    @field_validator("razorpay_key_id", "razorpay_key_secret", "anthropic_api_key", mode="before")
+    @field_validator(
+        "razorpay_key_id",
+        "razorpay_key_secret",
+        "anthropic_api_key",
+        "razorpay_webhook_secret",
+        mode="before",
+    )
     @classmethod
     def _scrub_placeholder(cls, v: object) -> object:
         if isinstance(v, str) and _is_placeholder(v):
