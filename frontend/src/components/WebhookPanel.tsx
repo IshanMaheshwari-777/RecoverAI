@@ -49,10 +49,11 @@ export function WebhookPanel({ report }: { report: PipelineReport }) {
     >
       <p className="mb-3 rounded-lg bg-surface-2 px-3 py-2.5 text-[11px] leading-relaxed text-ink-muted">
         <span className="font-medium text-ink-secondary">Projected</span> recovery is an
-        estimate — each action is scored with a published conversion rate (an immediate retry
-        converts ~45% of the time, an update request ~15%).{" "}
-        <span className="font-medium text-ink-secondary">Confirmed</span> recovery is measured:
-        a customer actually paid. Confirm one below to watch a transaction move across.
+        estimate — each action is scored with the conversion rate the learning loop has settled
+        on for that segment.{" "}
+        <span className="font-medium text-ink-secondary">Confirmed</span> recovery is measured: a
+        customer actually paid, and each confirmation here also moves the posterior. Confirm one
+        below to watch a transaction move across.
       </p>
 
       {total === 0 ? (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, BarChart3, BookOpen, GitBranch, ListChecks } from "lucide-react";
+import { AlertCircle, BarChart3, BookOpen, Brain, GitBranch, ListChecks } from "lucide-react";
 import { useReport } from "./hooks/useReport";
 import { Header } from "./components/Header";
 import { Card, Skeleton } from "./components/ui";
@@ -8,9 +8,11 @@ import { OverviewTab } from "./components/tabs/OverviewTab";
 import { FlowTab } from "./components/tabs/FlowTab";
 import { AuditTab } from "./components/tabs/AuditTab";
 import { GuideTab } from "./components/tabs/GuideTab";
+import { LearningTab } from "./components/tabs/LearningTab";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: BarChart3 },
+  { key: "learning", label: "Learning", icon: Brain },
   { key: "flow", label: "Decision flow", icon: GitBranch },
   { key: "audit", label: "Audit trail", icon: ListChecks },
   { key: "guide", label: "How it works", icon: BookOpen },
@@ -65,7 +67,13 @@ export default function App() {
         {error && !report && <ErrorState message={(error as Error).message} />}
         {report && (
           <>
+            {report.mode === "shadow" && (
+              <div className="mb-4 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+                Shadow run — every decision was made, nothing was executed. Not saved.
+              </div>
+            )}
             {tab === "overview" && <OverviewTab report={report} />}
+            {tab === "learning" && <LearningTab report={report} />}
             {tab === "flow" && <FlowTab report={report} />}
             {tab === "audit" && <AuditTab report={report} />}
             {tab === "guide" && <GuideTab report={report} />}

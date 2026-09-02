@@ -263,3 +263,20 @@ def generate_history(
         predicted = policy.conversion_priors.mean_for(action)
         rows.append((conversion_key(action, method, reason, band), converted, predicted))
     return rows
+
+
+def generate_experiment_history(
+    policy: Policy, seed: int, *, treated: int = 900, control: int = 220
+) -> list[tuple[bool, bool]]:
+    """Deterministic (is_treatment, converted) pairs for the causal-lift
+    warm-start -- a prior A/B log so the measured lift has a real sample
+    behind it, not just this run's handful of held-out rows."""
+    rng = random.Random(f"experiment-{seed}")
+    # treated customers convert at a blended action rate; control at organic.
+    treat_rate = sum(_TRUE_RATE.values()) / len(_TRUE_RATE) * 0.92
+    pairs: list[tuple[bool, bool]] = []
+    for _ in range(treated):
+        pairs.append((True, rng.random() < treat_rate))
+    for _ in range(control):
+        pairs.append((False, rng.random() < policy.organic_recovery_rate))
+    return pairs

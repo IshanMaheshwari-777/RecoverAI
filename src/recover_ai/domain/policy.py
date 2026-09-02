@@ -88,7 +88,7 @@ class Policy(BaseModel):
         rupees = float(amount)
         for low, high in self.amount_bands:
             if low <= rupees <= high:
-                return f"{low}-{high}"
+                return f"{low}+" if high >= 10**8 else f"{low}-{high}"
         return "unbanded"
 
     @classmethod

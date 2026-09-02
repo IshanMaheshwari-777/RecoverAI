@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-09-03
+
+### Added
+- **Versioned policy** (`domain/policy.py`, optional `data/policy.toml`) —
+  every tunable in one frozen object: caps, conversion priors, channel costs,
+  the holdout fraction, incident thresholds. Each audit entry records the
+  `policy_version` it was decided under.
+- **Learning loop** (`services/learning.py`) — Beta-Bernoulli posteriors for
+  `P(recover | action, method, reason, amount band)`, a credible interval, and
+  a Brier-scored calibration table. Starts at the policy prior; every webhook
+  confirmation moves it. `project_outcome` now draws against the learned
+  posterior, not a constant. New **Learning** dashboard tab: reliability
+  diagram, posteriors table (prior vs learned), calibration score.
+- **Causal holdout** — a seeded fraction of would-execute decisions are decided
+  identically but not executed. Treatment-vs-control recovery is a **measured
+  incremental lift** with a 95% CI, accrued across runs — not a projection.
+- **Recovery economics** (`services/economics.py`) — net expected value =
+  `p·amount − channel cost − chargeback/support risk`. A recovery below the
+  policy floor is skipped, not sent. Messages walk a cheapest-first channel
+  ladder (in-app → email → SMS → WhatsApp).
+- **Incident detection** (`services/incidents.py`) — a large, time-concentrated
+  cluster of failures on one rail is flagged; retries against it are deferred.
+- **Trust layer** — webhook HMAC-SHA256 verification
+  (`services/webhooks.py`, gated on `RAZORPAY_WEBHOOK_SECRET`); idempotency
+  keys + a dedupe store (`services/idempotency.py`).
+- **Shadow mode** — `recover-ai run --shadow` and the Run popover: decide
+  everything, execute nothing, don't save.
+- **`recover-ai backtest <csv>`** — replay the policy over a historical outcome
+  log and report projected recovery, organic baseline, incremental revenue,
+  and the calibration score. **`recover-ai policy-diff`** diffs two policies in
+  shadow over one batch.
+- `GET /api/learning`; `POST /api/runs` takes `mode`.
+
+### Changed
+- 93 tests (was 69). The pipeline threads a `Policy` and a `LearningStore`
+  through every layer; adapters are unchanged.
+
 ## [1.2.0] — 2026-08-29
 
 ### Changed

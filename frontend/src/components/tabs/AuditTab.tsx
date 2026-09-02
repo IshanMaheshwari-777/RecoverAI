@@ -18,6 +18,9 @@ const FILTERS: { key: OutcomeFilter; text: string }[] = [
 function outcomeBadge(r: TransactionResult) {
   if (r.stage_reached === "failed") return <Badge tone="critical">failed · contained</Badge>;
   const e = r.audit_entry;
+  if (e.held_out) return <Badge tone="neutral">holdout control</Badge>;
+  if (e.execution_method === "skipped_negative_ev") return <Badge tone="warn">skipped · low EV</Badge>;
+  if (e.execution_method === "retry_held_incident") return <Badge tone="warn">retry deferred</Badge>;
   if (!e.executed) return <Badge tone="warn">blocked</Badge>;
   if (e.confirmed_outcome === "recovered") return <Badge tone="good">confirmed paid</Badge>;
   return e.projected_outcome === "recovered" ? (
@@ -211,6 +214,30 @@ export function AuditTab({ report }: { report: PipelineReport }) {
                                 {r.decision.strategy} playbook
                                 {r.decision.scheduled_for &&
                                   ` · scheduled ${new Date(r.decision.scheduled_for).toLocaleString()}`}
+                              </Detail>
+                            )}
+                            {e.predicted_rate != null && (
+                              <Detail term="Learned conversion rate">
+                                {(e.predicted_rate * 100).toFixed(1)}% — posterior for{" "}
+                                <span className="font-mono text-[10px]">{e.conversion_key}</span>
+                              </Detail>
+                            )}
+                            {e.net_expected_value != null && (
+                              <Detail term="Economics">
+                                net expected value {inr(e.net_expected_value)}
+                                {e.channel && ` · via ${e.channel.replace(/_/g, " ")}`}
+                                {e.channel_cost != null && e.channel_cost > 0 && ` (cost ${inr(e.channel_cost)})`}
+                              </Detail>
+                            )}
+                            {(e.policy_version || e.idempotency_key) && (
+                              <Detail term="Provenance">
+                                {e.policy_version && `policy ${e.policy_version}`}
+                                {e.idempotency_key && (
+                                  <>
+                                    {" · "}
+                                    <span className="font-mono text-[10px]">{e.idempotency_key}</span>
+                                  </>
+                                )}
                               </Detail>
                             )}
                             {r.error && <Detail term="Error">{r.error.split("\n")[0]}</Detail>}

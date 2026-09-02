@@ -1,6 +1,41 @@
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 import type { PipelineReport } from "../types";
 import { Card } from "./ui";
+
+export function IncidentBanner({ report }: { report: PipelineReport }) {
+  if (!report.incidents.length) return null;
+  return (
+    <Card className="border-warn/40 bg-warn/5">
+      <div className="flex items-start gap-3">
+        <Activity className="size-5 shrink-0 text-warn" />
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink">
+            {report.incidents.length} degraded rail{report.incidents.length > 1 ? "s" : ""} detected
+            — retries deferred
+          </h2>
+          <p className="text-xs text-ink-muted">
+            A cluster of failures on one rail in a short window looks like an infrastructure
+            incident, not individual recoveries. Retries against it are held so we don&rsquo;t pile
+            onto a struggling gateway.
+          </p>
+          <div className="mt-3 space-y-2">
+            {report.incidents.map((inc, i) => (
+              <div key={i} className="rounded-lg bg-surface-2 px-3 py-2 text-[11px]">
+                <span className="font-medium text-ink">
+                  {inc.method} · {inc.reason.replace(/_/g, " ")}
+                </span>{" "}
+                <span className="text-ink-muted">
+                  — {inc.count} failures ({(inc.share * 100).toFixed(0)}% of the batch) within{" "}
+                  {inc.window_minutes} min. {inc.action_taken}.
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export function FailurePanel({ report }: { report: PipelineReport }) {
   const failed = report.results.filter((r) => r.stage_reached === "failed");

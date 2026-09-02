@@ -194,15 +194,17 @@ class Pipeline:
         # feed the learning loop: every executed action is a prediction now
         # awaiting confirmation; record the ones the seeded model resolved so
         # the calibration curve has points even before real webhooks arrive.
-        if self.learning is not None:
+        if self.learning is not None and mode == "live":
             for r in results:
                 e = r.audit_entry
+                converted = e.projected_outcome is RecoveryOutcome.RECOVERED
                 if e.executed and e.conversion_key and e.predicted_rate is not None:
                     self.learning.observe_conversion(
-                        e.conversion_key,
-                        converted=e.projected_outcome is RecoveryOutcome.RECOVERED,
-                        predicted=e.predicted_rate,
+                        e.conversion_key, converted=converted, predicted=e.predicted_rate
                     )
+                    self.learning.observe_experiment(treatment=True, converted=converted)
+                elif e.held_out:
+                    self.learning.observe_experiment(treatment=False, converted=converted)
 
         finished = datetime.now(tz=UTC)
         summary = PipelineReport.summarise(total_transactions=len(transactions), results=results)

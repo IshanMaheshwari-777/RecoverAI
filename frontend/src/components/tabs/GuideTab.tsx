@@ -183,6 +183,48 @@ export function GuideTab({ report }: { report: PipelineReport }) {
       </Card>
 
       <Card
+        title="How it gets better — the parts that aren't a rule table"
+        subtitle="The recovery brain sits on top of Razorpay's rails and optimises the merchant's net recovered revenue, learning per-merchant"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <GuidePoint title="It learns the conversion rates">
+            The projected number doesn&rsquo;t use a constant. A Beta posterior per{" "}
+            <em>action × method × failure reason × amount band</em> starts at the policy prior and
+            moves with every webhook confirmation. Over time the projection becomes calibrated — the{" "}
+            <strong className="text-ink-secondary">Learning</strong> tab shows the reliability curve
+            and Brier score.
+          </GuidePoint>
+          <GuidePoint title="It measures causal lift, not just projection">
+            A random {Math.round((s.causal.holdout_fraction || 0.1) * 100)}% of would-act
+            transactions are held out as an untouched control. Treatment recovery minus control
+            recovery is the <em>incremental</em> lift — the revenue that would not have come back on
+            its own. {s.causal.control_n ? `${(s.causal.incremental_rate * 100).toFixed(1)}% this run.` : ""}
+          </GuidePoint>
+          <GuidePoint title="It prices every recovery">
+            Net expected value = p(recover)·amount minus channel cost minus chargeback / support
+            risk. A recovery below the policy floor is skipped, not sent. Messages walk a
+            cheapest-first channel ladder (in-app → email → SMS → WhatsApp).
+            {s.economics.skipped_negative_ev
+              ? ` ${s.economics.skipped_negative_ev} skipped this run.`
+              : ""}
+          </GuidePoint>
+          <GuidePoint title="It knows when a rail is down">
+            A cluster of failures on one rail in a short window is an infrastructure incident, not
+            individual recoveries. Retries against a degraded rail are deferred rather than piled
+            onto a struggling gateway.
+          </GuidePoint>
+          <GuidePoint title="It is safe to deploy">
+            The webhook verifies Razorpay&rsquo;s HMAC signature. Every execution carries an
+            idempotency key, so a re-run after a crash never double-charges or double-messages.
+          </GuidePoint>
+          <GuidePoint title="It can dry-run">
+            Shadow mode decides everything and executes nothing — onboard in shadow, compare a new
+            policy against the current one over the same batch, then switch it on.
+          </GuidePoint>
+        </div>
+      </Card>
+
+      <Card
         title="Projected vs. confirmed recovery"
         subtitle="The two money numbers, and why they differ"
       >
@@ -234,6 +276,15 @@ export function GuideTab({ report }: { report: PipelineReport }) {
           </div>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function GuidePoint({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2/50 p-3.5">
+      <div className="text-xs font-semibold text-ink">{title}</div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">{children}</p>
     </div>
   );
 }

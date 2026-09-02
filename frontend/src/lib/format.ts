@@ -40,6 +40,10 @@ const METHOD_LABELS: Record<string, string> = {
   blocked: "Blocked",
   unhandled: "Unhandled",
   pipeline_error: "Processing failed",
+  holdout_control: "Holdout control",
+  retry_held_incident: "Retry deferred · incident",
+  skipped_negative_ev: "Skipped · negative EV",
+  shadow: "Shadow · not executed",
 };
 
 const DIAG_LABELS: Record<string, string> = {

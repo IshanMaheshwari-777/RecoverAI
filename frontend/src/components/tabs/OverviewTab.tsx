@@ -3,8 +3,9 @@ import { inr, pct } from "../../lib/format";
 import { Stat } from "../ui";
 import { RecoveryFunnel } from "../RecoveryFunnel";
 import { DiagnosisSplitCard } from "../Breakdowns";
-import { CompliancePanel, FailurePanel } from "../Panels";
+import { CompliancePanel, FailurePanel, IncidentBanner } from "../Panels";
 import { WebhookPanel } from "../WebhookPanel";
+import { CausalLiftCard } from "./LearningTab";
 
 export function OverviewTab({ report }: { report: PipelineReport }) {
   const s = report.summary;
@@ -16,10 +17,23 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
         Of <strong className="text-ink">{s.total_transactions}</strong> transactions,{" "}
         <strong className="text-ink">{s.needing_attention}</strong> failed or were abandoned —{" "}
         <strong className="text-ink">{inr(s.at_risk)}</strong> of revenue at risk. The agent
-        diagnosed every one, took <strong className="text-ink">{s.executed_actions}</strong>{" "}
-        recovery actions, correctly refused{" "}
-        <strong className="text-ink">{s.blocked_actions}</strong>, and projects{" "}
-        <strong className="text-good">{inr(s.projected_recovered)}</strong> recovered — with{" "}
+        diagnosed every one, executed <strong className="text-ink">{s.executed_actions}</strong>{" "}
+        recoveries, refused <strong className="text-ink">{s.blocked_actions}</strong>, and held{" "}
+        <strong className="text-ink">{s.held_out_actions}</strong> back as a control —{" "}
+        {report.learning?.experiment.control_n ? (
+          <>
+            a measured{" "}
+            <strong className="text-good">
+              {pct(report.learning.experiment.incremental_rate)}
+            </strong>{" "}
+            incremental lift
+          </>
+        ) : (
+          <>
+            projecting <strong className="text-good">{inr(s.projected_recovered)}</strong> recovered
+          </>
+        )}{" "}
+        — with{" "}
         <strong className={s.compliance_violations ? "text-critical" : "text-good"}>
           {s.compliance_violations} compliance violations
         </strong>
@@ -33,14 +47,28 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
           hint={`${s.needing_attention} failed or abandoned payments`}
           explain="Every payment that failed or was abandoned, added up. This is the money that leaks if nobody follows up."
         />
-        <Stat
-          label="Projected recovered"
-          value={inr(s.projected_recovered)}
-          hint={`${pct(s.recovery_rate)} of at-risk · modelled estimate`}
-          tone="good"
-          emphasis
-          explain="A modelled estimate: each recovery action carries a published conversion rate (immediate retry ~45%, update request ~15%), drawn per transaction so re-runs match."
-        />
+        {(() => {
+          const x = report.learning?.experiment;
+          return x && x.control_n ? (
+            <Stat
+              label="Incremental lift"
+              value={pct(x.incremental_rate)}
+              hint={`measured vs ${x.control_n.toLocaleString("en-IN")} untouched controls`}
+              tone="good"
+              emphasis
+              explain="Measured, not modelled: a random holdout of would-act transactions is left untouched and accrued across runs. Treatment recovery rate minus the control's is the true causal effect."
+            />
+          ) : (
+            <Stat
+              label="Projected recovered"
+              value={inr(s.projected_recovered)}
+              hint={`${pct(s.recovery_rate)} of at-risk · learned estimate`}
+              tone="good"
+              emphasis
+              explain="A learned estimate: each action carries a conversion probability from the learning loop, drawn per transaction so re-runs match."
+            />
+          );
+        })()}
         <Stat
           label="Confirmed recovered"
           value={inr(s.confirmed_recovered)}
@@ -56,11 +84,12 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <MiniStat label="Actions executed" value={s.executed_actions} />
         <MiniStat label="Correctly blocked" value={s.blocked_actions} />
+        <MiniStat label="Held out (control)" value={s.held_out_actions} />
+        <MiniStat label="Skipped · low EV" value={s.economics.skipped_negative_ev} />
         <MiniStat label="Escalated" value={s.escalated_actions} />
-        <MiniStat label="Rule / AI" value={`${s.diagnosis_split.rule} / ${s.diagnosis_split.llm + s.diagnosis_split.llm_fallback}`} />
         <MiniStat
           label="Failed, contained"
           value={s.failed}
@@ -68,6 +97,7 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
         />
       </div>
 
+      <IncidentBanner report={report} />
       <FailurePanel report={report} />
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
@@ -75,7 +105,10 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
         <DiagnosisSplitCard report={report} />
       </div>
 
-      <CompliancePanel report={report} />
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <CausalLiftCard report={report} />
+        <CompliancePanel report={report} />
+      </div>
       <WebhookPanel report={report} />
     </div>
   );

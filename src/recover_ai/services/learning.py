@@ -105,7 +105,36 @@ class LearningStore:
         self._conv: dict[str, _Beta] = {}
         self._timing: dict[str, list[float]] = {}  # reason -> [ewma_hours, weight]
         self._deliver: dict[str, list[float]] = {}  # "cust|channel" -> [ok, n]
+        self._experiment = [0.0, 0.0, 0.0, 0.0]  # t_hits, t_n, c_hits, c_n -- accrued across runs
         self.calibration = Calibration()
+
+    # -- causal experiment (accrues across every run's holdout) --------
+    def observe_experiment(self, *, treatment: bool, converted: bool) -> None:
+        with self._lock:
+            i = 0 if treatment else 2
+            self._experiment[i + 1] += 1.0
+            if converted:
+                self._experiment[i] += 1.0
+
+    def experiment_lift(self) -> dict[str, float]:
+        with self._lock:
+            th, tn, ch, cn = self._experiment
+            tr = th / tn if tn else 0.0
+            cr = ch / cn if cn else 0.0
+            # normal-approx 95% CI on the difference of two proportions
+            se = 0.0
+            if tn and cn:
+                se = math.sqrt(tr * (1 - tr) / tn + cr * (1 - cr) / cn)
+            diff = tr - cr
+            return {
+                "treatment_rate": round(tr, 4),
+                "control_rate": round(cr, 4),
+                "treatment_n": int(tn),
+                "control_n": int(cn),
+                "incremental_rate": round(diff, 4),
+                "ci_low": round(diff - 1.96 * se, 4),
+                "ci_high": round(diff + 1.96 * se, 4),
+            }
 
     # -- conversion ----------------------------------------------------
     def _prior(self, action: DiagnosisAction) -> _Beta:
@@ -184,6 +213,7 @@ class LearningStore:
                 "conversion": {k: [v.alpha, v.beta] for k, v in self._conv.items()},
                 "timing": self._timing,
                 "deliverability": self._deliver,
+                "experiment": self._experiment,
                 "calibration": {
                     "brier_sum": self.calibration.brier_sum,
                     "count": self.calibration.count,
@@ -204,6 +234,9 @@ class LearningStore:
             deliver = raw.get("deliverability", {})
             if isinstance(deliver, dict):
                 self._deliver = {str(k): [float(x) for x in v] for k, v in deliver.items()}
+            exp = raw.get("experiment")
+            if isinstance(exp, list) and len(exp) == 4:
+                self._experiment = [float(x) for x in exp]
             cal = raw.get("calibration", {})
             if isinstance(cal, dict):
                 self.calibration = Calibration(
@@ -234,6 +267,11 @@ class LearningStore:
                         "observations": round(b.n - self._prior(DiagnosisAction(action)).n),
                     }
                 )
+            th, tn, ch, cn = self._experiment
+            tr = th / tn if tn else 0.0
+            cr = ch / cn if cn else 0.0
+            se = math.sqrt(tr * (1 - tr) / tn + cr * (1 - cr) / cn) if (tn and cn) else 0.0
+            diff = tr - cr
             return {
                 "policy_version": self._policy.version,
                 "conversion_rates": rows,
@@ -242,6 +280,15 @@ class LearningStore:
                 "observations": self.calibration.count,
                 "retry_timing_hours": {
                     k: round(v[0], 1) for k, v in self._timing.items() if v[1] >= 3
+                },
+                "experiment": {
+                    "treatment_rate": round(tr, 4),
+                    "control_rate": round(cr, 4),
+                    "treatment_n": int(tn),
+                    "control_n": int(cn),
+                    "incremental_rate": round(diff, 4),
+                    "ci_low": round(diff - 1.96 * se, 4),
+                    "ci_high": round(diff + 1.96 * se, 4),
                 },
             }
 

@@ -6,7 +6,11 @@ import json
 from pathlib import Path
 
 from recover_ai.adapters.factory import build_llm, build_payment_gateway
-from recover_ai.adapters.synthetic import generate_batch, generate_history
+from recover_ai.adapters.synthetic import (
+    generate_batch,
+    generate_experiment_history,
+    generate_history,
+)
 from recover_ai.config import Settings, get_settings
 from recover_ai.domain.policy import Policy
 from recover_ai.domain.results import PipelineReport
@@ -51,9 +55,12 @@ def run_pipeline(
     learning = pipeline.learning
     if warm_start and learning is not None and learning.summary()["observations"] == 0:
         # Seed the learning loop with deterministic historical outcomes so the
-        # calibration curve and posteriors are meaningful on a fresh install.
+        # calibration curve, posteriors, and causal experiment are meaningful
+        # on a fresh install.
         for key, converted, predicted in generate_history(pipeline.policy, seed):
             learning.observe_conversion(key, converted=converted, predicted=predicted)
+        for treatment, converted in generate_experiment_history(pipeline.policy, seed):
+            learning.observe_experiment(treatment=treatment, converted=converted)
 
     transactions = generate_batch(count, seed)
     if inject_failure:

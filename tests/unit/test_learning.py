@@ -63,6 +63,34 @@ def test_deliverability_defaults_open_then_learns() -> None:
     assert store.deliverable("cust_1", "sms") is False
 
 
+def test_causal_experiment_accrues_and_reports_a_ci() -> None:
+    store = LearningStore(Policy())
+    for _ in range(400):
+        store.observe_experiment(treatment=True, converted=True)
+    for _ in range(600):
+        store.observe_experiment(treatment=True, converted=False)  # 40% treated
+    for _ in range(900):
+        store.observe_experiment(treatment=False, converted=False)
+    for _ in range(100):
+        store.observe_experiment(treatment=False, converted=True)  # 10% control
+    x = store.experiment_lift()
+    assert x["treatment_n"] == 1000
+    assert x["control_n"] == 1000
+    assert abs(x["incremental_rate"] - 0.30) < 0.01
+    assert x["ci_low"] > 0  # a big enough sample -> significant
+
+
+def test_experiment_state_persists(tmp_path) -> None:
+    policy = Policy()
+    store = LearningStore(policy)
+    store.observe_experiment(treatment=True, converted=True)
+    store.observe_experiment(treatment=False, converted=False)
+    save_learning(store, tmp_path)
+    back = load_learning(policy, tmp_path).experiment_lift()
+    assert back["treatment_n"] == 1
+    assert back["control_n"] == 1
+
+
 def test_retry_timing_needs_evidence_before_it_overrides() -> None:
     store = LearningStore(Policy())
     assert store.suggested_retry_hours(FailureReason.INSUFFICIENT_FUNDS, 24.0) == 24.0

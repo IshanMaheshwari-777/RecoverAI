@@ -56,6 +56,7 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
   const [count, setCount] = useState(report?.count ?? 180);
   const [seed, setSeed] = useState(report?.seed ?? 42);
   const [injectFailure, setInjectFailure] = useState(false);
+  const [shadow, setShadow] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,13 +74,15 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
   }, [open]);
 
   const mutation = useMutation({
-    mutationFn: () => api.run({ count, seed, inject_failure: injectFailure }),
+    mutationFn: () =>
+      api.run({ count, seed, inject_failure: injectFailure, mode: shadow ? "shadow" : "live" }),
     onSuccess: (data) => {
       qc.setQueryData(["report"], data);
       setOpen(false);
       const s = data.summary;
       toast(
-        `Processed ${s.needing_attention} transactions in ${(data.duration_ms / 1000).toFixed(1)}s` +
+        (data.mode === "shadow" ? "Shadow run · " : "") +
+          `${s.needing_attention} transactions in ${(data.duration_ms / 1000).toFixed(1)}s` +
           (s.failed ? ` · ${s.failed} contained` : ""),
       );
     },
@@ -160,6 +163,19 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
               Adds one malformed transaction to prove it fails alone without stopping the batch.
             </span>
           </label>
+          <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-lg bg-surface-2 p-2.5">
+            <input
+              type="checkbox"
+              checked={shadow}
+              onChange={(e) => setShadow(e.target.checked)}
+              className="mt-0.5 accent-series-1"
+            />
+            <span className="text-[11px] leading-relaxed text-ink-secondary">
+              <span className="font-medium text-ink">Shadow run</span>
+              <br />
+              Decide everything, execute nothing. The result is shown but not saved.
+            </span>
+          </label>
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
@@ -212,7 +228,8 @@ export function Header({ report }: { report: PipelineReport | undefined }) {
                 />
               </div>
               <span className="hidden text-[11px] text-ink-muted lg:inline">
-                {relativeTime(report.finished_at)} · {(report.duration_ms / 1000).toFixed(1)}s
+                {relativeTime(report.finished_at)} · {(report.duration_ms / 1000).toFixed(1)}s ·{" "}
+                <span title="Active policy version">{report.policy_version}</span>
               </span>
             </>
           )}

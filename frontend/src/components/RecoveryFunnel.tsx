@@ -72,10 +72,10 @@ export function RecoveryFunnel({ report }: { report: PipelineReport }) {
         })}
       </div>
       <p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-ink-muted">
-        “Projected recovered” applies a fixed, published conversion probability per action type
-        (45% immediate retry … 15% update request), seeded per transaction. It is an explicit
-        modelling assumption — production replaces it with the webhook confirmations shown as the
-        final bar.
+        “Projected recovered” applies the <em>learned</em> conversion probability for each
+        segment (see the Learning tab), drawn per transaction so re-runs match. The measured
+        number is the incremental lift over the holdout control; the confirmed number is real
+        webhook events.
       </p>
     </Card>
   );

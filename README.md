@@ -10,7 +10,7 @@
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white">
   <img alt="typed: strict" src="https://img.shields.io/badge/mypy-strict-2a78d6">
   <img alt="lint: ruff" src="https://img.shields.io/badge/lint-ruff-eb6834">
-  <img alt="coverage 93%" src="https://img.shields.io/badge/coverage-93%25-1baf7a">
+  <img alt="coverage 92%" src="https://img.shields.io/badge/coverage-92%25-1baf7a">
   <img alt="license MIT" src="https://img.shields.io/badge/license-MIT-black">
 </p>
 
@@ -33,17 +33,33 @@ Given a batch of transactions, the agent:
 2. **Diagnoses** the root cause from Razorpay's structured `error` object —
    deterministic rules for the clear-cut cases, the LLM for the one genuinely
    ambiguous one.
-3. **Decides** the recovery action under three hard limits (`do_not_contact` is
-   absolute, retries capped per method, contact capped per customer / 48 h).
-4. **Executes** — a fresh Razorpay test-mode payment link, or a customer message
-   drafted by Claude / a template.
-5. **Accounts** for every decision on an audit trail, projects revenue
-   recovered, and exposes a `payment_link.paid` webhook that turns a projection
-   into a confirmed number.
+3. **Decides** the recovery action under hard compliance limits (`do_not_contact`
+   absolute, retries capped per method, contact capped per customer / 48 h) and
+   an **expected-value gate** — a recovery that isn't worth the cost of chasing
+   is skipped.
+4. **Executes** — a fresh Razorpay payment object, or a customer message on the
+   cheapest deliverable channel.
+5. **Accounts** for every decision on an audit trail, and **learns**: a Beta
+   posterior per segment moves with each webhook confirmation, a random holdout
+   gives a **measured** incremental lift, and the projection becomes calibrated.
 
 <p align="center">
   <img src="docs/dashboard.png" alt="Dashboard" width="880">
 </p>
+
+### How it learns
+
+The projected recovery number isn't a constant. A `Beta` posterior per
+`action × method × failure reason × amount band` starts at the policy prior and
+moves with every `payment_link.paid` webhook (or its N-day absence). Over time
+the projection becomes calibrated — the **Learning** tab shows the reliability
+diagram and Brier score.
+
+A seeded fraction of would-act transactions is held out as an **untouched
+control**. Treatment recovery minus control recovery is the *incremental* lift —
+the revenue that would not have come back on its own — reported with a 95%
+confidence interval and accrued across runs. That is the number a CFO signs off
+on, and it is measured, not modelled.
 
 ---
 
@@ -71,6 +87,9 @@ docker compose up --build      # dashboard + API on :8000
 ```bash
 recover-ai run --count 180 --seed 42          # writes data/pipeline_report.json
 recover-ai run --inject-failure               # exercise the containment boundary
+recover-ai run --shadow                       # decide everything, execute nothing
+recover-ai backtest history.csv               # replay the policy on real outcomes
+recover-ai policy-diff ./a ./b                # diff two policies in shadow
 recover-ai report                             # re-print the last run
 recover-ai serve                              # API + dashboard
 ```
@@ -139,15 +158,18 @@ src/recover_ai/
 ├── domain/        pure entities, value objects, enums, errors  (no I/O)
 │   ├── money.py       exact-Decimal ₹ with Indian digit grouping
 │   ├── models.py      Transaction / ErrorDetail  (strict Pydantic)
-│   └── results.py     PipelineReport — every headline number derived here
+│   ├── results.py     PipelineReport — every headline number derived here
+│   └── policy.py      versioned Policy — every tunable, recorded per decision
 ├── ports/         LLMPort, PaymentGatewayPort  (Protocols)
 ├── adapters/      AnthropicLLM · NullLLM · RazorpayGateway · SimulatedGateway · synthetic
 ├── services/      diagnosis · recovery · execution · pipeline · strategies · outcomes
+│                  learning (Beta posteriors + calibration) · economics (EV gate)
+│                  incidents · idempotency · webhooks · backtest
 ├── api/           FastAPI app + built SPA
-└── cli.py         Typer:  run / report / serve / demo
+└── cli.py         Typer:  run / report / serve / demo / backtest / policy-diff
 
 frontend/          React + Vite + Tailwind dashboard
-tests/             unit · integration · e2e   (hermetic; 69 tests, 93% cov)
+tests/             unit · integration · e2e   (hermetic; 93 tests, 92% cov)
 ```
 
 ---
