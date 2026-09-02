@@ -10,6 +10,7 @@ from recover_ai.adapters.synthetic import (
     generate_batch,
     generate_experiment_history,
     generate_history,
+    generate_timing_history,
 )
 from recover_ai.config import Settings, get_settings
 from recover_ai.domain.policy import Policy
@@ -61,6 +62,8 @@ def run_pipeline(
             learning.observe_conversion(key, converted=converted, predicted=predicted)
         for treatment, converted in generate_experiment_history(pipeline.policy, seed):
             learning.observe_experiment(treatment=treatment, converted=converted)
+        for reason, hours in generate_timing_history(seed):
+            learning.observe_retry_landing(reason, hours)
 
     transactions = generate_batch(count, seed)
     if inject_failure:

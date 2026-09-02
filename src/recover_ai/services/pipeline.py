@@ -130,7 +130,12 @@ class Pipeline:
         def retry_hold(t: Transaction) -> bool:
             return t.reason is not None and (t.reason, t.method) in degraded
 
-        engine = RecoveryEngine(self.policy, retry_hold_rails=retry_hold)
+        learning = self.learning
+        engine = RecoveryEngine(
+            self.policy,
+            retry_hold_rails=retry_hold,
+            retry_hours=(learning.suggested_retry_hours if learning is not None else None),
+        )
         executor = Executor(
             self.gateway,
             self.llm,

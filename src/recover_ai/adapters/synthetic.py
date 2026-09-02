@@ -265,6 +265,29 @@ def generate_history(
     return rows
 
 
+# When a delayed retry actually converts, by failure reason -- the timing
+# model should discover these instead of using the hard-coded strategy delay.
+_TRUE_RETRY_HOURS: dict[FailureReason, float] = {
+    FailureReason.INSUFFICIENT_FUNDS: 19.0,  # earlier than the 24h default
+    FailureReason.GATEWAY_TIMEOUT: 0.4,
+    FailureReason.NETWORK_ISSUE: 0.3,
+    FailureReason.PAYMENT_DECLINED: 4.5,
+}
+
+
+def generate_timing_history(
+    seed: int, *, per_reason: int = 12
+) -> list[tuple[FailureReason, float]]:
+    """Deterministic (reason, hours-to-land) observations for the retry-timing
+    warm-start."""
+    rng = random.Random(f"timing-{seed}")
+    rows: list[tuple[FailureReason, float]] = []
+    for reason, mean in _TRUE_RETRY_HOURS.items():
+        for _ in range(per_reason):
+            rows.append((reason, max(0.05, rng.gauss(mean, mean * 0.25))))
+    return rows
+
+
 def generate_experiment_history(
     policy: Policy, seed: int, *, treated: int = 900, control: int = 220
 ) -> list[tuple[bool, bool]]:

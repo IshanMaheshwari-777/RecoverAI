@@ -44,11 +44,15 @@ class RecoveryEngine:
         policy: Policy | None = None,
         *,
         retry_hold_rails: Callable[[Transaction], bool] | None = None,
+        retry_hours: Callable[[FailureReason | None, float], float] | None = None,
     ) -> None:
         self._policy = policy or Policy()
         self._cap = self._policy.contact_cap_per_window
         self._window = timedelta(hours=self._policy.contact_window_hours)
         self._retry_hold = retry_hold_rails or (lambda _t: False)
+        # learned override for the delayed-retry timing; falls back to the
+        # strategy default when there isn't enough evidence.
+        self._retry_hours = retry_hours or (lambda _r, fallback: fallback)
         self._contact_log: dict[str, list[datetime]] = {}
 
     # -- contact cap bookkeeping ------------------------------------------
@@ -109,11 +113,12 @@ class RecoveryEngine:
                     strategy=strat.name,
                 )
 
-            scheduled_for = (
-                at
-                if diagnosis.action is DiagnosisAction.RETRY_NOW
-                else at + retry_delay(txn.method, txn.reason, txn.attempt_number)
-            )
+            if diagnosis.action is DiagnosisAction.RETRY_NOW:
+                scheduled_for = at
+            else:
+                default = retry_delay(txn.method, txn.reason, txn.attempt_number)
+                hours = self._retry_hours(txn.reason, default.total_seconds() / 3600)
+                scheduled_for = at + timedelta(hours=hours)
             return RecoveryDecision(
                 transaction_id=txn.id,
                 customer_id=txn.customer_id,

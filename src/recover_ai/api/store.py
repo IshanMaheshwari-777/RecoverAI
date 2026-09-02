@@ -12,16 +12,31 @@ runs in a database and a queue.
 from __future__ import annotations
 
 import threading
+from datetime import UTC, datetime
 
 from recover_ai.app import load_report, run_pipeline, save_report
 from recover_ai.config import get_settings
-from recover_ai.domain.enums import RecoveryOutcome
+from recover_ai.domain.enums import FailureReason, RecoveryOutcome
 from recover_ai.domain.policy import Policy
 from recover_ai.domain.results import PipelineReport, TransactionResult
 from recover_ai.logging import get_logger
 from recover_ai.services.learning import load_learning, save_learning
 
 log = get_logger(__name__)
+
+
+def _as_utc(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _reason_from_key(key: str) -> FailureReason | None:
+    parts = key.split("|")
+    if len(parts) < 3:
+        return None
+    try:
+        return FailureReason(parts[2])
+    except ValueError:
+        return None
 
 
 class ReportStore:
@@ -88,6 +103,13 @@ class ReportStore:
         learning.observe_conversion(
             entry.conversion_key, converted=converted, predicted=entry.predicted_rate
         )
+
+        # a paid retry landed -- feed the timing model how long it took
+        if converted and entry.payment_link_id and entry.recorded_at is not None:
+            reason = _reason_from_key(entry.conversion_key)
+            hours = (datetime.now(UTC) - _as_utc(entry.recorded_at)).total_seconds() / 3600
+            learning.observe_retry_landing(reason, min(max(hours, 0.05), 72.0))
+
         save_learning(learning, settings.data_dir)
 
 
