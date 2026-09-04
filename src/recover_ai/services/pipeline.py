@@ -101,6 +101,7 @@ class Pipeline:
         count: int,
         failure_injected: bool = False,
         mode: str = "live",
+        data_source: str = "synthetic",
     ) -> PipelineReport:
         started = datetime.now(tz=UTC)
         run_id = f"run_{uuid.uuid4().hex[:12]}"
@@ -141,7 +142,12 @@ class Pipeline:
             self.llm,
             learning=self.learning,
             policy=self.policy,
-            idempotency=self.idempotency,
+            # Idempotency protects a real transaction from ever being executed
+            # twice (e.g. after a crash-and-retry). Synthetic data reuses the
+            # same transaction ids by design -- "same seed -> identical,
+            # reproducible batch" -- so applying the dedupe guard there would
+            # silently block every re-run after the first.
+            idempotency=self.idempotency if data_source == "razorpay" else None,
         )
 
         # phase 2 -- decide, strictly in chronological order (stateful engine)
@@ -227,6 +233,7 @@ class Pipeline:
             count=count,
             failure_injected=failure_injected,
             mode=mode,
+            data_source=data_source,
             policy_version=self.policy.version,
             started_at=started,
             finished_at=finished,

@@ -42,10 +42,20 @@ def version() -> None:
 
 @app.command()
 def run(
-    count: int = typer.Option(180, help="Batch size to generate."),
+    count: int = typer.Option(
+        180, help="Batch size to generate (or to pull, for --source razorpay)."
+    ),
     seed: int = typer.Option(42, help="RNG seed -- same seed, identical batch."),
+    source: str = typer.Option(
+        "synthetic",
+        "--source",
+        help="'synthetic' (generated) or 'razorpay' (your real account's recent "
+        "failed payments -- read-only).",
+    ),
     inject_failure: bool = typer.Option(
-        False, "--inject-failure", help="Add one malformed record to exercise containment."
+        False,
+        "--inject-failure",
+        help="Add one malformed record to exercise containment (synthetic only).",
     ),
     shadow: bool = typer.Option(
         False, "--shadow", help="Decide everything, execute nothing -- a dry run."
@@ -56,6 +66,10 @@ def run(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Only print the summary."),
 ) -> None:
     """Run the full pipeline and write data/pipeline_report.json."""
+    if source not in ("synthetic", "razorpay"):
+        console.print(f"[red]--source must be 'synthetic' or 'razorpay', got {source!r}[/]")
+        raise typer.Exit(1)
+
     settings = get_settings()
     if live_links is not None:
         settings.live_link_budget = live_links
@@ -64,8 +78,19 @@ def run(
 
     mode = "shadow" if shadow else "live"
     report = run_pipeline(
-        count=count, seed=seed, inject_failure=inject_failure, mode=mode, settings=settings
+        count=count,
+        seed=seed,
+        inject_failure=inject_failure,
+        mode=mode,
+        source=source,  # type: ignore[arg-type]
+        settings=settings,
     )
+    if report.data_source == "razorpay" and report.summary.needing_attention == 0:
+        console.print(
+            "[yellow]Connected to your real Razorpay account -- no failed payments found "
+            "in the most recent page. Nothing to recover yet; try --source synthetic to see "
+            "the full flow.[/]"
+        )
     _render_summary(report, verbose=not quiet)
     if not shadow:
         path = save_report(report, settings)

@@ -118,6 +118,7 @@ class PipelineReport(BaseModel):
     count: int
     failure_injected: bool
     mode: str = "live"  # "live" | "shadow"
+    data_source: str = "synthetic"  # "synthetic" | "razorpay" -- real account data
     policy_version: str = "builtin/1"
     started_at: datetime
     finished_at: datetime

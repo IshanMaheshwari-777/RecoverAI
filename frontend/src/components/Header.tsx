@@ -4,6 +4,7 @@ import { ChevronDown, Loader2, Moon, Play, Sun, Zap } from "lucide-react";
 import { api } from "../api";
 import type { PipelineReport } from "../types";
 import { relativeTime } from "../lib/format";
+import { useHealth } from "../hooks/useHealth";
 import { Button } from "./ui";
 import { toast } from "./Toast";
 
@@ -57,7 +58,12 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
   const [seed, setSeed] = useState(report?.seed ?? 42);
   const [injectFailure, setInjectFailure] = useState(false);
   const [shadow, setShadow] = useState(false);
+  const [source, setSource] = useState<"synthetic" | "razorpay">("synthetic");
   const boxRef = useRef<HTMLDivElement>(null);
+  const { data: health } = useHealth();
+  // the server's *current* credentials, not whatever a stale/synthetic
+  // report happened to record at the time it was generated
+  const liveDataAvailable = health?.razorpay_live ?? report?.razorpay_live ?? false;
 
   useEffect(() => {
     if (!open) return;
@@ -75,13 +81,26 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
 
   const mutation = useMutation({
     mutationFn: () =>
-      api.run({ count, seed, inject_failure: injectFailure, mode: shadow ? "shadow" : "live" }),
+      api.run({
+        count,
+        seed,
+        inject_failure: source === "synthetic" && injectFailure,
+        mode: shadow ? "shadow" : "live",
+        source,
+      }),
     onSuccess: (data) => {
       qc.setQueryData(["report"], data);
+      if (data.mode === "live") void qc.invalidateQueries({ queryKey: ["runHistory"] });
       setOpen(false);
       const s = data.summary;
+      const sourceLabel = data.data_source === "razorpay" ? "live Razorpay data · " : "";
+      if (data.data_source === "razorpay" && s.needing_attention === 0) {
+        toast(`${sourceLabel}connected, but no failed payments found right now`);
+        return;
+      }
       toast(
         (data.mode === "shadow" ? "Shadow run · " : "") +
+          sourceLabel +
           `${s.needing_attention} transactions in ${(data.duration_ms / 1000).toFixed(1)}s` +
           (s.failed ? ` · ${s.failed} contained` : ""),
       );
@@ -119,14 +138,53 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
 
       {open && (
         <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-border bg-surface p-4 shadow-2xl">
-          <p className="mb-3 text-[11px] leading-relaxed text-ink-muted">
-            Generates a fresh batch of transactions and runs the full agent over it. Same seed →
-            identical batch, so results are reproducible.
+          <span className="text-[10px] font-medium uppercase tracking-wide text-ink-muted">
+            Data source
+          </span>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSource("synthetic")}
+              className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ${
+                source === "synthetic"
+                  ? "border-series-1 bg-series-1/10 text-ink"
+                  : "border-border text-ink-secondary hover:bg-surface-2"
+              }`}
+            >
+              Synthetic
+            </button>
+            <button
+              type="button"
+              disabled={!liveDataAvailable}
+              title={
+                liveDataAvailable
+                  ? "Read-only: pulls your account's recent failed payments"
+                  : "No Razorpay credentials configured"
+              }
+              onClick={() => setSource("razorpay")}
+              className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                source === "razorpay"
+                  ? "border-series-1 bg-series-1/10 text-ink"
+                  : "border-border text-ink-secondary hover:bg-surface-2"
+              }`}
+            >
+              Live Razorpay
+            </button>
+          </div>
+          <p className="mb-3 mt-2 text-[11px] leading-relaxed text-ink-muted">
+            {source === "synthetic" ? (
+              <>Generates a fresh batch and runs the full agent over it. Same seed → identical batch.</>
+            ) : (
+              <>
+                Reads your account's most recent failed payments — read-only, no charges. Same
+                pipeline, real data.
+              </>
+            )}
           </p>
           <div className="flex gap-3">
             <label className="flex-1">
               <span className="text-[10px] font-medium uppercase tracking-wide text-ink-muted">
-                Transactions
+                {source === "synthetic" ? "Transactions" : "Payments to check"}
               </span>
               <input
                 type="number"
@@ -137,32 +195,36 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
                 className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs tabular outline-none focus:border-series-1"
               />
             </label>
-            <label className="w-20">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-ink-muted">
-                Seed
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={seed}
-                onChange={(e) => setSeed(+e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs tabular outline-none focus:border-series-1"
-              />
-            </label>
+            {source === "synthetic" && (
+              <label className="w-20">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-ink-muted">
+                  Seed
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={seed}
+                  onChange={(e) => setSeed(+e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs tabular outline-none focus:border-series-1"
+                />
+              </label>
+            )}
           </div>
-          <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg bg-surface-2 p-2.5">
-            <input
-              type="checkbox"
-              checked={injectFailure}
-              onChange={(e) => setInjectFailure(e.target.checked)}
-              className="mt-0.5 accent-series-1"
-            />
-            <span className="text-[11px] leading-relaxed text-ink-secondary">
-              <span className="font-medium text-ink">Inject a corrupt record</span>
-              <br />
-              Adds one malformed transaction to prove it fails alone without stopping the batch.
-            </span>
-          </label>
+          {source === "synthetic" && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg bg-surface-2 p-2.5">
+              <input
+                type="checkbox"
+                checked={injectFailure}
+                onChange={(e) => setInjectFailure(e.target.checked)}
+                className="mt-0.5 accent-series-1"
+              />
+              <span className="text-[11px] leading-relaxed text-ink-secondary">
+                <span className="font-medium text-ink">Inject a corrupt record</span>
+                <br />
+                Adds one malformed transaction to prove it fails alone without stopping the batch.
+              </span>
+            </label>
+          )}
           <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-lg bg-surface-2 p-2.5">
             <input
               type="checkbox"
@@ -197,6 +259,7 @@ function RunControl({ report }: { report: PipelineReport | undefined }) {
 /* -------------------------------------------------------------- header */
 
 export function Header({ report }: { report: PipelineReport | undefined }) {
+  const { data: health } = useHealth();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg">
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
@@ -216,13 +279,31 @@ export function Header({ report }: { report: PipelineReport | undefined }) {
           {report && (
             <>
               <div className="hidden items-center gap-2 md:flex">
+                <span
+                  title={
+                    report.data_source === "razorpay"
+                      ? "This run diagnosed real failed payments read from your Razorpay account"
+                      : "This run used generated demo transactions"
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium ${
+                    report.data_source === "razorpay"
+                      ? "border-good/40 bg-good/10 text-good"
+                      : "border-border bg-surface-2 text-ink-secondary"
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${report.data_source === "razorpay" ? "bg-good" : "bg-ink-muted"}`}
+                    aria-hidden
+                  />
+                  {report.data_source === "razorpay" ? "Live Razorpay data" : "Synthetic data"}
+                </span>
                 <StatusPill
-                  live={report.razorpay_live}
+                  live={health?.razorpay_live ?? report.razorpay_live}
                   label="Razorpay"
                   detail="Creating real payment objects against Razorpay's test-mode API"
                 />
                 <StatusPill
-                  live={report.anthropic_live}
+                  live={health?.anthropic_live ?? report.anthropic_live}
                   label="Claude"
                   detail={report.llm_model ?? "no model configured"}
                 />

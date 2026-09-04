@@ -21,6 +21,7 @@ frontend/dist/
 
 # generated artefacts (regenerate with: recover-ai run)
 data/*.json
+data/*.db
 
 # built SPA — produced by `make build-web` / Docker / CI, not committed
 src/recover_ai/api/static/

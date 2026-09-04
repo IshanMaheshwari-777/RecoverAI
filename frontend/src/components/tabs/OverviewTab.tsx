@@ -1,17 +1,29 @@
+import { CheckCircle2 } from "lucide-react";
 import type { PipelineReport } from "../../types";
 import { inr, pct } from "../../lib/format";
-import { Stat } from "../ui";
+import { Card, Stat } from "../ui";
 import { RecoveryFunnel } from "../RecoveryFunnel";
 import { DiagnosisSplitCard } from "../Breakdowns";
 import { CompliancePanel, FailurePanel, IncidentBanner } from "../Panels";
 import { WebhookPanel } from "../WebhookPanel";
+import { RunHistoryCard } from "../RunHistoryCard";
 import { CausalLiftCard } from "./LearningTab";
 
 export function OverviewTab({ report }: { report: PipelineReport }) {
   const s = report.summary;
 
+  if (report.data_source === "razorpay" && s.needing_attention === 0) {
+    return <LiveDataEmptyState />;
+  }
+
   return (
     <div className="space-y-5">
+      {report.data_source === "razorpay" && (
+        <p className="max-w-4xl rounded-lg border border-good/30 bg-good/5 px-3 py-2 text-xs text-good">
+          This run diagnosed {s.needing_attention} real failed payments read from your connected
+          Razorpay account — not generated data.
+        </p>
+      )}
       {/* the one-sentence story */}
       <p className="max-w-4xl text-sm leading-relaxed text-ink-secondary">
         Of <strong className="text-ink">{s.total_transactions}</strong> transactions,{" "}
@@ -110,6 +122,32 @@ export function OverviewTab({ report }: { report: PipelineReport }) {
         <CompliancePanel report={report} />
       </div>
       <WebhookPanel report={report} />
+      <RunHistoryCard />
+    </div>
+  );
+}
+
+function LiveDataEmptyState() {
+  return (
+    <div className="space-y-5">
+      <Card className="border-good/30 bg-good/5">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="size-5 shrink-0 text-good" />
+          <div>
+            <h2 className="text-sm font-semibold text-ink">
+              Connected to your real Razorpay account — no failed payments right now
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-muted">
+              This wasn't generated: the agent just made a live, read-only call to your account
+              and found zero payments with <code className="text-ink-secondary">status=failed</code>{" "}
+              in the most recent page. That's a real result, not an error — switch the header's
+              data source to <strong className="text-ink-secondary">Synthetic</strong> to see the
+              full pipeline run, or come back once a real payment has failed.
+            </p>
+          </div>
+        </div>
+      </Card>
+      <RunHistoryCard />
     </div>
   );
 }

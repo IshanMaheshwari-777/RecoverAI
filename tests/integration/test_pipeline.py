@@ -60,6 +60,18 @@ def test_report_is_json_roundtrippable() -> None:
     assert restored.policy_version == report.policy_version
 
 
+def test_repeated_synthetic_runs_stay_reproducible_not_idempotency_blocked() -> None:
+    """Regression: idempotency must not apply to synthetic data, or the
+    documented 'same seed -> identical batch' promise breaks after the
+    first run (every re-run would see its own deterministic ids as
+    'already executed')."""
+    first = run_pipeline(count=150, seed=42)
+    second = run_pipeline(count=150, seed=42)
+    assert second.summary.executed_actions == first.summary.executed_actions
+    assert second.summary.executed_actions > 0
+    assert second.summary.projected_recovered == first.summary.projected_recovered
+
+
 def test_holdout_creates_a_control_group_and_a_lift_number() -> None:
     report = run_pipeline(count=200, seed=42)
     s = report.summary

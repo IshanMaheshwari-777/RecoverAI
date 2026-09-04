@@ -180,6 +180,7 @@ export interface PipelineReport {
   count: number;
   failure_injected: boolean;
   mode: "live" | "shadow";
+  data_source: "synthetic" | "razorpay";
   policy_version: string;
   started_at: string;
   finished_at: string;
@@ -198,4 +199,31 @@ export interface RunRequest {
   seed: number;
   inject_failure: boolean;
   mode?: "live" | "shadow";
+  source?: "synthetic" | "razorpay";
+}
+
+export interface HealthResponse {
+  status: "ok";
+  version: string;
+  razorpay_live: boolean;
+  anthropic_live: boolean;
+  webhook_verified: boolean;
+}
+
+export interface RunHistoryRow {
+  run_id: string;
+  started_at: string;
+  finished_at: string;
+  mode: string;
+  data_source: string;
+  policy_version: string;
+  total_transactions: number;
+  needing_attention: number;
+  executed_actions: number;
+  held_out_actions: number;
+  at_risk_rupees: number;
+  projected_recovered_rupees: number;
+  confirmed_recovered_rupees: number;
+  incremental_lift: number;
+  compliance_violations: number;
 }

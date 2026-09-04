@@ -17,6 +17,7 @@ build/
 .git/
 .github/
 data/*.json
+data/*.db
 .env
 docs/
 tests/

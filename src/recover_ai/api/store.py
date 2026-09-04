@@ -49,10 +49,22 @@ class ReportStore:
         return self._report
 
     def run(
-        self, *, count: int, seed: int, inject_failure: bool, mode: str = "live"
+        self,
+        *,
+        count: int,
+        seed: int,
+        inject_failure: bool,
+        mode: str = "live",
+        source: str = "synthetic",
     ) -> PipelineReport:
         with self._lock:
-            report = run_pipeline(count=count, seed=seed, inject_failure=inject_failure, mode=mode)
+            report = run_pipeline(
+                count=count,
+                seed=seed,
+                inject_failure=inject_failure,
+                mode=mode,
+                source=source,  # type: ignore[arg-type]
+            )
             if mode == "live":
                 save_report(report)
             self._report = report

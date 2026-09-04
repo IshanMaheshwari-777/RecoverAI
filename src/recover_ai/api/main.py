@@ -23,6 +23,7 @@ from recover_ai.api.store import store
 from recover_ai.config import get_settings
 from recover_ai.domain.results import PipelineReport
 from recover_ai.logging import configure
+from recover_ai.services.history import list_runs
 from recover_ai.services.webhooks import verify_signature
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -33,6 +34,7 @@ class RunRequest(BaseModel):
     seed: int = Field(default=42, ge=0)
     inject_failure: bool = False
     mode: Literal["live", "shadow"] = "live"
+    source: Literal["synthetic", "razorpay"] = "synthetic"
 
 
 class RazorpayWebhook(BaseModel):
@@ -89,13 +91,22 @@ def create_app() -> FastAPI:
             raise HTTPException(404, "No learning state yet.")
         return store.report.learning
 
+    @app.get("/api/runs/history", tags=["report"])
+    def get_run_history() -> list[dict[str, object]]:
+        return list_runs(get_settings().data_dir)
+
     @app.post("/api/runs", response_model=PipelineReport, tags=["report"])
     def create_run(body: RunRequest) -> PipelineReport:
+        if body.source == "razorpay" and not get_settings().razorpay_available:
+            raise HTTPException(
+                400, "No Razorpay credentials configured -- set RAZORPAY_KEY_ID/SECRET first."
+            )
         return store.run(
             count=body.count,
             seed=body.seed,
             inject_failure=body.inject_failure,
             mode=body.mode,
+            source=body.source,
         )
 
     @app.post("/api/webhooks/razorpay", tags=["webhooks"])
