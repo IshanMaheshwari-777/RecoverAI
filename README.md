@@ -1,9 +1,9 @@
 <h1 align="center">Recover AI</h1>
 
 <p align="center">
-  An AI agent that diagnoses <em>why</em> a Razorpay payment failed and drives the
-  right recovery — under compliance limits enforced in code, with every decision
-  on an audit trail.
+  An agent that diagnoses <em>why</em> a Razorpay payment failed, drives the
+  compliant recovery, and <em>learns</em> — a calibrated conversion model, an
+  expected-value gate, and a measured causal lift, not a projection.
 </p>
 
 <p align="center">
@@ -23,7 +23,14 @@
 Payments fail for a dozen reasons — an expired card, a bank auth decline, a
 dropped OTP, a customer who closes the tab mid-checkout. Most of that revenue is
 genuinely recoverable if something diagnoses the cause and takes the right next
-action fast. Most merchants don't have that something.
+action fast. Razorpay tells a merchant *that* a payment failed, and gives a raw
+error code. It does not decide what to do about each one, price whether chasing
+it is worth it, prove the campaign actually worked, or stop before a retry turns
+into a chargeback or a spam complaint. Most merchants send one generic "payment
+failed" email — or nothing — and eat the rest. Recover AI is the layer in
+between: it optimizes the merchant's *net* recovered revenue, not Razorpay's
+transaction volume, and it is provider-neutral by construction (see
+[Architecture](#architecture)).
 
 ## What this does
 
@@ -215,15 +222,40 @@ sequential in chronological order (the recovery engine is stateful). A live
 ~100 s. Fast enough to trigger from the dashboard or a webhook handler.
 
 
-## "Revenue recovered"
+## The three "revenue recovered" numbers, and why they differ
 
-A batch has no real customer completing checkout, so conversion is **projected**
-— a published probability per action type (`retry_now` 0.45 … `request_update`
-0.15), drawn with a per-transaction seed so re-runs match. It is a labelled
-modelling assumption. `POST /api/webhooks/razorpay` models the production
-replacement: a `payment_link.paid` event flips one entry to *confirmed*, and the
-dashboard's confirmed number moves. The webhook simulator on the dashboard does
-this live.
+| Number | What it is | Where it comes from |
+|---|---|---|
+| **Projected** | Each executed action × its learned conversion rate | `services/learning.py` — a `Beta` posterior per segment, seeded per transaction so re-runs match |
+| **Confirmed** | Money a customer actually paid | `POST /api/webhooks/razorpay` flips one entry from projected to confirmed and feeds the posterior a real observation |
+| **Incremental lift** | Treatment recovery rate minus an untouched holdout control's, 95% CI | `services/pipeline.py::_assign_holdout` + `LearningStore.observe_experiment`, accrued across every run |
+
+A batch demo has no real customer completing checkout, so *projected* and the
+holdout's outcomes are both drawn from the learned posterior rather than
+observed — that is labelled everywhere it surfaces. Only *confirmed* is ever a
+real number, and it is what production ships with: `payment_link.paid` webhooks
+replace the projection outright, run over run, with no code change.
+
+## Safety and operations
+
+Built to be run, not just demoed:
+
+- **Idempotent** — every execution carries a key over `(transaction, action,
+  policy version)`; a re-run after a crash never double-charges or
+  double-messages (`services/idempotency.py`).
+- **Verified webhooks** — `RAZORPAY_WEBHOOK_SECRET` set → HMAC-SHA256 checked
+  against the raw body before anything is trusted (`services/webhooks.py`).
+- **Shadow mode** — `recover-ai run --shadow` decides everything and executes
+  nothing, for onboarding a merchant or trying a policy before it's live.
+- **Backtestable** — `recover-ai backtest history.csv` replays the policy
+  against real historical outcomes and reports the incremental revenue and
+  calibration *before* it ever touches a live customer.
+- **Diffable policy changes** — `recover-ai policy-diff ./a ./b` runs two
+  `policy.toml`s in shadow over the same batch and prints what changes:
+  executions, skips, cost, projected recovery.
+- **Incident-aware** — a time-concentrated cluster of failures on one rail is
+  treated as an infrastructure problem, not 20 recoveries; retries against it
+  are deferred (`services/incidents.py`).
 
 ---
 
@@ -233,10 +265,11 @@ this live.
 
 | Method | Path | |
 |---|---|---|
-| `GET` | `/api/health` | credential/liveness status |
-| `GET` | `/api/report` | the current `PipelineReport` |
-| `POST` | `/api/runs` | run a fresh pipeline `{count, seed, inject_failure}` |
-| `POST` | `/api/webhooks/razorpay` | `{event: "payment_link.paid", payment_link_id}` → confirm |
+| `GET` | `/api/health` | credential/liveness status + whether webhook verification is on |
+| `GET` | `/api/report` | the current `PipelineReport` (results, summary, incidents, learning) |
+| `GET` | `/api/learning` | posteriors, calibration table, causal experiment, retry timing |
+| `POST` | `/api/runs` | run a fresh pipeline `{count, seed, inject_failure, mode: "live"\|"shadow"}` |
+| `POST` | `/api/webhooks/razorpay` | `{event: "payment_link.paid", payment_link_id}` → confirm + learn, HMAC-verified when `RAZORPAY_WEBHOOK_SECRET` is set |
 
 ## Development
 
@@ -247,6 +280,27 @@ make fmt        # autofix + format
 
 CI runs the backend on Python 3.11 and 3.12, builds the frontend, and
 smoke-tests the Docker image. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Where this stands
+
+**What's genuinely load-bearing, not demo dressing:** the causal holdout with a
+95% CI, the expected-value gate, Beta-posterior calibration, HMAC-verified
+webhooks, and idempotent execution are the same primitives a production
+recovery system needs — they are not hackathon-only shortcuts. Most dunning
+tools (Stripe Smart Retries, Chargebee/Recurly's recovery, Razorpay's own
+retry logic) optimize *conversion*; few expose a measured incremental-lift
+number with a confidence interval, and fewer still gate spend on net expected
+value per recovery rather than retrying everything.
+
+**What keeps this a strong buildathon submission rather than a production
+platform today:** one gateway (Razorpay) and one LLM vendor behind the ports —
+swappable, not yet swapped; JSON-file persistence instead of a real database,
+so it doesn't hold up under concurrent multi-tenant write load; no auth or
+multi-tenancy; messaging channels (SMS/WhatsApp/email) are priced and ranked
+but not wired to a real send API; and every number here is on synthetic or
+self-seeded data — it has not seen a live merchant's traffic. Closing that gap
+is integration work, not a research problem: the interfaces (`PaymentGatewayPort`,
+`LLMPort`, the channel ladder) already exist for exactly this reason.
 
 ## A note on the failure taxonomy
 
